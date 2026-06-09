@@ -1,0 +1,16 @@
+project_id = "crm"
+
+[db]
+major_version = 15
+
+[functions.notify-dispatch]
+verify_jwt = true   # вызывает pg_cron с service-ключом; внутри доп. проверка
+
+[functions.public-status]
+verify_jwt = false  # публичная страница по QR-токену; rate limiting внутри
+
+[functions.telegram-webhook]
+verify_jwt = false  # Telegram аутентифицируется секретным заголовком
+
+[functions.pdf-generate]
+verify_jwt = true   # только авторизованные сотрудники (этап 11)
