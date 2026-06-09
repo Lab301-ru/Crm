@@ -1,0 +1,32 @@
+@import "tailwindcss";
+
+/* Тёмная тема — единственная и основная (решение Этапа 7) */
+@theme {
+  --color-bg: #0b0f17;
+  --color-surface: #121826;
+  --color-surface-2: #1a2233;
+  --color-border: #243047;
+  --color-text: #e6eaf2;
+  --color-muted: #8b97ab;
+  --color-primary: #3b82f6;
+  --color-primary-hover: #2563eb;
+  --color-danger: #ef4444;
+  --color-success: #22c55e;
+  --color-warning: #f59e0b;
+}
+
+html {
+  color-scheme: dark;
+}
+
+body {
+  background-color: var(--color-bg);
+  color: var(--color-text);
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* Тонкий скроллбар в тёмной гамме */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: var(--color-border) transparent;
+}
