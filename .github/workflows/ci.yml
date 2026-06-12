@@ -1,0 +1,65 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+jobs:
+  frontend:
+    name: Фронтенд (tsc + vite build)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run build
+        env:
+          # Сборка не требует реальных ключей: значения подставляются в бандл как есть
+          VITE_SUPABASE_URL: https://ci-placeholder.supabase.co
+          VITE_SUPABASE_ANON_KEY: ci-placeholder
+
+  db-tests:
+    name: База (миграции + RLS + логика + демо)
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      PGUSER: postgres
+      PGPASSWORD: postgres
+    steps:
+      - uses: actions/checkout@v4
+      - name: Клиент PostgreSQL
+        run: sudo apt-get update -q && sudo apt-get install -y -q postgresql-client
+      - name: Прогон тестов (28 проверок + интеграция демо-данных)
+        run: ./scripts/test-db.sh 127.0.0.1 5432
+
+  edge-functions:
+    name: Edge Functions (типы + тесты)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
+      - name: Тесты шаблонов уведомлений
+        run: deno test supabase/functions/_shared/template.test.ts
+      - name: Проверка типов всех функций
+        run: |
+          for f in supabase/functions/*/index.ts; do
+            echo "deno check $f"
+            deno check "$f"
+          done
