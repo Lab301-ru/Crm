@@ -147,6 +147,20 @@ export interface OrderItem {
   qty: number;
 }
 
+export type AttachmentKind = "device_photo" | "serial_photo" | "document" | "receipt" | "warranty_doc";
+
+export interface Attachment {
+  id: string;
+  order_id: string;
+  kind: AttachmentKind;
+  storage_path: string;
+  file_name: string;
+  mime_type: string | null;
+  size_bytes: number | null;
+  uploaded_by: string | null;
+  created_at: string;
+}
+
 export interface HistoryRow {
   id: string;
   order_id: string;

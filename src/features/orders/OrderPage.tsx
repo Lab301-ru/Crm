@@ -12,6 +12,7 @@ import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/t
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
 import { useAuth } from "@/app/AuthProvider";
+import { PhotosCard } from "./PhotosCard";
 
 export function OrderPage() {
   const { id = "" } = useParams();
@@ -141,6 +142,9 @@ export function OrderPage() {
 
       {/* Неисправность и работа мастера */}
       <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} isMaster={isMaster} />
+
+      {/* Фото устройства */}
+      <PhotosCard orderId={id} closed={["issued", "scrapped"].includes(o.status)} />
 
       {/* Работы и запчасти */}
       <ItemsCard orderId={id} items={items.data ?? []} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
