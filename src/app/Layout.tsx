@@ -1,5 +1,6 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
+import { OfflineBanner } from "./OfflineBanner";
 
 const navItems = [
   { to: "/", label: "Дашборд", icon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-18v6h8V3h-8z" },
@@ -67,6 +68,7 @@ export function Layout() {
 
       {/* Контент */}
       <main className="flex-1 md:ml-56 pb-20 md:pb-6">
+        <OfflineBanner />
         <Outlet />
       </main>
 

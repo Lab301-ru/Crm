@@ -52,7 +52,11 @@ export function OrderPage() {
   };
 
   const statusMutation = useMutation({
-    mutationFn: ({ to, comment }: { to: string; comment: string | null }) => changeStatus(id, to, comment),
+    // ключ + переменные (не замыкание): мутация попадает в офлайн-очередь
+    // и доотправляется после перезагрузки (defaults в main.tsx)
+    mutationKey: ["change-status"],
+    mutationFn: (v: { orderId: string; to: string; comment: string | null }) =>
+      changeStatus(v.orderId, v.to, v.comment),
     onSuccess: () => { invalidate(); setStatusTarget(null); },
   });
 
@@ -205,7 +209,7 @@ export function OrderPage() {
             <Button
               className="flex-1"
               disabled={statusMutation.isPending}
-              onClick={() => statusMutation.mutate({ to: statusTarget!.code, comment: statusComment.trim() || null })}
+              onClick={() => statusMutation.mutate({ orderId: id, to: statusTarget!.code, comment: statusComment.trim() || null })}
             >
               Подтвердить
             </Button>
@@ -255,15 +259,20 @@ function DefectCard({ order, profiles, onSaved, isMaster }: {
   const [dueDate, setDueDate] = useState(order.due_date ?? "");
 
   const save = useMutation({
-    // мастеру сервер запретит менять master_id — не отправляем его вовсе
-    mutationFn: () => updateOrder(order.id, {
+    mutationKey: ["update-order"],
+    mutationFn: (v: { orderId: string; patch: Partial<Order> }) => updateOrder(v.orderId, v.patch),
+    onSuccess: onSaved,
+  });
+  // мастеру сервер запретит менять master_id — не отправляем его вовсе
+  const submitPatch = () => save.mutate({
+    orderId: order.id,
+    patch: {
       diagnostic_result: diagnostic.trim() || null,
       master_comment: masterComment.trim() || null,
       public_comment: publicComment.trim() || null,
       ...(isMaster ? {} : { master_id: masterId || null }),
       due_date: dueDate || null,
-    }),
-    onSuccess: onSaved,
+    },
   });
 
   const masters = profiles.filter((p) => p.is_active && p.role !== "manager");
@@ -271,7 +280,7 @@ function DefectCard({ order, profiles, onSaved, isMaster }: {
   return (
     <Card
       title="Неисправность и диагностика"
-      actions={<Button variant="secondary" disabled={save.isPending} onClick={() => save.mutate()}>Сохранить</Button>}
+      actions={<Button variant="secondary" disabled={save.isPending} onClick={submitPatch}>Сохранить</Button>}
     >
       <div className="space-y-3">
         <div>
@@ -456,18 +465,23 @@ function PaymentCard({ order, onSaved }: { order: Order; onSaved: () => void }) 
   const [prepayment, setPrepayment] = useState(String(order.prepayment));
 
   const save = useMutation({
-    mutationFn: () => updateOrder(order.id, {
+    mutationKey: ["update-order"],
+    mutationFn: (v: { orderId: string; patch: Partial<Order> }) => updateOrder(v.orderId, v.patch),
+    onSuccess: onSaved,
+  });
+  const submitPayment = () => save.mutate({
+    orderId: order.id,
+    patch: {
       payment_status: paymentStatus,
       payment_method: method || null,
       prepayment: Number(prepayment) || 0,
-    }),
-    onSuccess: onSaved,
+    },
   });
 
   return (
     <Card
       title="Оплата"
-      actions={<Button variant="secondary" disabled={save.isPending} onClick={() => save.mutate()}>Сохранить</Button>}
+      actions={<Button variant="secondary" disabled={save.isPending} onClick={submitPayment}>Сохранить</Button>}
     >
       <div className="grid grid-cols-3 gap-3">
         <Field label="Статус оплаты">
