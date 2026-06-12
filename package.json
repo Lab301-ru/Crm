@@ -8,7 +8,9 @@
     "build": "tsc -b && vite build",
     "preview": "vite preview",
     "typecheck": "tsc -b",
-    "icons": "node scripts/generate-icons.mjs"
+    "icons": "node scripts/generate-icons.mjs",
+    "test:db": "./scripts/test-db.sh",
+    "test:functions": "deno test supabase/functions/_shared/template.test.ts"
   },
   "dependencies": {
     "@supabase/supabase-js": "^2.49.0",
