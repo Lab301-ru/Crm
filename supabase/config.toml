@@ -3,6 +3,18 @@ project_id = "crm"
 [db]
 major_version = 15
 
+[auth]
+# Локальная разработка: фронтенд Vite. Для облака URL задаются
+# в Dashboard → Authentication → URL Configuration (Этап 17).
+site_url = "http://localhost:5173"
+additional_redirect_urls = ["http://localhost:5173/reset-password"]
+# Самостоятельной регистрации нет: сотрудников создаёт админ
+# через Edge Function admin-users (service_role)
+enable_signup = false
+
+[auth.email]
+enable_confirmations = false
+
 [functions.notify-dispatch]
 verify_jwt = true   # вызывает pg_cron с service-ключом; внутри доп. проверка
 
@@ -11,9 +23,6 @@ verify_jwt = false  # публичная страница по QR-токену; 
 
 [functions.telegram-webhook]
 verify_jwt = false  # Telegram аутентифицируется секретным заголовком
-
-[functions.pdf-generate]
-verify_jwt = true   # только авторизованные сотрудники (этап 11)
 
 [functions.admin-users]
 verify_jwt = true   # управление сотрудниками; внутри проверка роли admin

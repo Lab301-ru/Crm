@@ -1,0 +1,9 @@
+node_modules
+dist
+dev-dist
+.git
+.env
+.env.*
+docs
+supabase/.temp
+*.log
