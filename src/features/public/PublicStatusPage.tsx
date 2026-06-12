@@ -1,15 +1,18 @@
 import { useParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
-import { formatDate } from "@/shared/lib/format";
+import { formatDate, formatDateTime } from "@/shared/lib/format";
 import { Spinner } from "@/shared/ui";
 
 interface PublicStatus {
   order_number: string;
   status: string;
+  status_code: string;
   status_color: string;
+  is_terminal: boolean;
   accepted_at: string | null;
   due_date: string | null;
   service_comment: string | null;
+  history: { status: string; color: string; at: string }[];
   org: {
     name: string;
     phone: string | null;
@@ -28,14 +31,23 @@ async function fetchPublicStatus(token: string): Promise<PublicStatus> {
   return body;
 }
 
-/** Публичная страница по QR-коду: без авторизации, без персональных данных. */
+/**
+ * Публичная страница по QR-коду с квитанции: без авторизации и без
+ * персональных данных — номер, статус с историей, даты, комментарий
+ * сервиса и контакты. Пока ремонт идёт, страница сама обновляется.
+ */
 export function PublicStatusPage() {
   const { token = "" } = useParams();
   const { data, isLoading, error } = useQuery({
     queryKey: ["public-status", token],
     queryFn: () => fetchPublicStatus(token),
     retry: 1,
+    // клиент держит вкладку открытой в ожидании — обновляем сами,
+    // но для закрытых заказов не дёргаем Edge Function зря
+    refetchInterval: (q) => (q.state.data?.is_terminal ? false : 60_000),
   });
+
+  const ready = data?.status_code === "ready";
 
   return (
     <div className="flex min-h-dvh items-center justify-center p-4">
@@ -64,7 +76,13 @@ export function PublicStatusPage() {
               >
                 {data.status}
               </span>
+              {ready && (
+                <p className="mt-3 rounded-lg bg-success/15 px-3 py-2 text-sm font-medium text-success">
+                  Устройство готово — можно забирать!
+                </p>
+              )}
             </div>
+
             <dl className="space-y-2 p-6 text-sm">
               <div className="flex justify-between">
                 <dt className="text-muted">Принят</dt>
@@ -81,6 +99,36 @@ export function PublicStatusPage() {
                 </div>
               )}
             </dl>
+
+            {data.history.length > 0 && (
+              <div className="border-t border-border px-6 py-5">
+                <p className="mb-3 text-xs uppercase tracking-wide text-muted">Ход ремонта</p>
+                <ol className="space-y-0">
+                  {data.history.map((h, i) => {
+                    const last = i === data.history.length - 1;
+                    return (
+                      <li key={i} className="relative flex gap-3 pb-4 last:pb-0">
+                        {!last && (
+                          <span className="absolute left-[5px] top-4 h-full w-px bg-border" aria-hidden />
+                        )}
+                        <span
+                          className="relative mt-1.5 h-[11px] w-[11px] shrink-0 rounded-full"
+                          style={{ backgroundColor: last ? h.color : "var(--color-border)" }}
+                          aria-hidden
+                        />
+                        <div className="min-w-0 text-sm">
+                          <p className={last ? "font-semibold" : ""} style={last ? { color: h.color } : undefined}>
+                            {h.status}
+                          </p>
+                          <p className="text-xs text-muted">{formatDateTime(h.at)}</p>
+                        </div>
+                      </li>
+                    );
+                  })}
+                </ol>
+              </div>
+            )}
+
             <div className="border-t border-border bg-surface-2/50 p-6 text-sm">
               <p className="font-semibold">{data.org.name}</p>
               {data.org.address && <p className="mt-1 text-muted">{data.org.address}</p>}

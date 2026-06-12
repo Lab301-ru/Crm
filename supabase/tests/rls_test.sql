@@ -171,6 +171,17 @@ do $$ begin
   raise notice 'OK: анониму не видно ничего';
 end $$;
 
+-- Публичный статус — только через Edge Function (service_role),
+-- напрямую анониму функция недоступна даже со знанием токена
+do $$ begin
+  begin
+    perform public.public_order_status('00000000000000000000000000000000');
+    raise exception 'FAIL: anon может вызывать public_order_status';
+  exception when insufficient_privilege then null;
+  end;
+  raise notice 'OK: public_order_status закрыта от анонима';
+end $$;
+
 -- ===== Деактивированный сотрудник =====
 reset role;
 update public.profiles set is_active = false where id = 'a0000000-0000-0000-0000-000000000004';

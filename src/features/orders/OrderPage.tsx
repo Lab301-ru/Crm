@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
@@ -158,15 +158,19 @@ export function OrderPage() {
 
       {/* QR / отслеживание */}
       <Card title="Отслеживание для клиента">
-        <div className="flex flex-wrap items-center gap-3 text-sm">
-          <code className="rounded bg-surface-2 px-2 py-1 text-xs break-all">{trackingUrl}</code>
-          <Button variant="secondary" type="button" onClick={() => void navigator.clipboard.writeText(trackingUrl)}>
-            Скопировать ссылку
-          </Button>
+        <div className="flex flex-wrap items-center gap-4">
+          <QrImage url={trackingUrl} />
+          <div className="min-w-0 flex-1 space-y-2 text-sm">
+            <code className="block rounded bg-surface-2 px-2 py-1 text-xs break-all">{trackingUrl}</code>
+            <Button variant="secondary" type="button" onClick={() => void navigator.clipboard.writeText(trackingUrl)}>
+              Скопировать ссылку
+            </Button>
+            <p className="text-xs text-muted">
+              Этот же QR печатается на квитанции — клиент может отсканировать прямо с экрана.
+              На странице видно только: номер, статус с историей, даты и комментарий сервиса.
+            </p>
+          </div>
         </div>
-        <p className="mt-2 text-xs text-muted">
-          QR-код с этой ссылкой печатается на квитанции. Клиент видит только: номер, статус, даты и комментарий сервиса.
-        </p>
       </Card>
 
       {/* История */}
@@ -211,6 +215,20 @@ export function OrderPage() {
       </Modal>
     </div>
   );
+}
+
+/** QR на белой подложке — иначе сканеры не читают с тёмного экрана. */
+function QrImage({ url }: { url: string }) {
+  const [src, setSrc] = useState<string | null>(null);
+  useEffect(() => {
+    let alive = true;
+    void import("qrcode")
+      .then((m) => m.default.toDataURL(url, { margin: 1, width: 192 }))
+      .then((s) => { if (alive) setSrc(s); });
+    return () => { alive = false; };
+  }, [url]);
+  if (!src) return <div className="h-28 w-28 shrink-0 rounded-lg bg-surface-2" aria-hidden />;
+  return <img src={src} alt="QR-код отслеживания" className="h-28 w-28 shrink-0 rounded-lg bg-white p-1.5" />;
 }
 
 function Row({ k, v }: { k: string; v: string }) {
