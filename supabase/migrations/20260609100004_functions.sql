@@ -646,7 +646,9 @@ grant execute on function public.complete_notification(uuid, boolean, text) to s
 grant execute on function public.link_telegram(text, bigint) to service_role;
 grant execute on function public.public_order_status(text) to service_role;
 
--- Пользовательские RPC — только авторизованным (проверки ролей внутри)
+-- Пользовательские RPC — только авторизованным (проверки ролей внутри).
+-- Грант authenticated явный: после revoke from public он не наследуется,
+-- и полагаться на default privileges Supabase непереносимо.
 revoke execute on function public.create_order(jsonb, jsonb, jsonb) from public, anon;
 revoke execute on function public.change_status(uuid, text, text) from public, anon;
 revoke execute on function public.quick_add_model(uuid, text, text) from public, anon;
@@ -654,5 +656,14 @@ revoke execute on function public.import_catalog_batch(jsonb) from public, anon;
 revoke execute on function public.global_search(text, int) from public, anon;
 revoke execute on function public.dashboard_stats() from public, anon;
 revoke execute on function public.mark_phone_call_done(uuid) from public, anon;
+grant execute on function
+  public.create_order(jsonb, jsonb, jsonb),
+  public.change_status(uuid, text, text),
+  public.quick_add_model(uuid, text, text),
+  public.import_catalog_batch(jsonb),
+  public.global_search(text, int),
+  public.dashboard_stats(),
+  public.mark_phone_call_done(uuid)
+to authenticated, service_role;
 
 grant select on public.orders_with_totals, public.order_list to authenticated, service_role;

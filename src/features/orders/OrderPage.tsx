@@ -11,9 +11,12 @@ import { fetchProfiles } from "@/shared/api/settings";
 import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
+import { useAuth } from "@/app/AuthProvider";
 
 export function OrderPage() {
   const { id = "" } = useParams();
+  const { profile } = useAuth();
+  const isMaster = profile?.role === "master";
   const queryClient = useQueryClient();
 
   const order = useQuery({ queryKey: ["order", id], queryFn: () => fetchOrder(id) });
@@ -137,13 +140,13 @@ export function OrderPage() {
       </div>
 
       {/* Неисправность и работа мастера */}
-      <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} />
+      <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} isMaster={isMaster} />
 
       {/* Работы и запчасти */}
       <ItemsCard orderId={id} items={items.data ?? []} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
 
-      {/* Оплата */}
-      <PaymentCard order={o} onSaved={invalidate} />
+      {/* Оплата — финансы ведёт менеджер/админ */}
+      {!isMaster && <PaymentCard order={o} onSaved={invalidate} />}
 
       {/* QR / отслеживание */}
       <Card title="Отслеживание для клиента">
@@ -213,10 +216,11 @@ function Row({ k, v }: { k: string; v: string }) {
 
 /* ---------------- Неисправность / диагностика ---------------- */
 
-function DefectCard({ order, profiles, onSaved }: {
+function DefectCard({ order, profiles, onSaved, isMaster }: {
   order: Order;
   profiles: { id: string; full_name: string; role: string; is_active: boolean }[];
   onSaved: () => void;
+  isMaster: boolean;
 }) {
   const [diagnostic, setDiagnostic] = useState(order.diagnostic_result ?? "");
   const [masterComment, setMasterComment] = useState(order.master_comment ?? "");
@@ -225,11 +229,12 @@ function DefectCard({ order, profiles, onSaved }: {
   const [dueDate, setDueDate] = useState(order.due_date ?? "");
 
   const save = useMutation({
+    // мастеру сервер запретит менять master_id — не отправляем его вовсе
     mutationFn: () => updateOrder(order.id, {
       diagnostic_result: diagnostic.trim() || null,
       master_comment: masterComment.trim() || null,
       public_comment: publicComment.trim() || null,
-      master_id: masterId || null,
+      ...(isMaster ? {} : { master_id: masterId || null }),
       due_date: dueDate || null,
     }),
     onSuccess: onSaved,
@@ -259,12 +264,14 @@ function DefectCard({ order, profiles, onSaved }: {
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          <Field label="Мастер">
-            <Select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
-              <option value="">Не назначен</option>
-              {masters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-            </Select>
-          </Field>
+          {!isMaster && (
+            <Field label="Мастер">
+              <Select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
+                <option value="">Не назначен</option>
+                {masters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+              </Select>
+            </Field>
+          )}
           <Field label="Плановая готовность">
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>

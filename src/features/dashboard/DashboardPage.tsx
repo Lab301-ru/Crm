@@ -5,6 +5,7 @@ import { fetchOrderList } from "@/shared/api/orders";
 import { formatMoney, formatPhone } from "@/shared/lib/format";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
+import { useAuth } from "@/app/AuthProvider";
 import { OrdersTable } from "@/features/orders/OrdersTable";
 
 function Widget({ label, value, to, accent }: { label: string; value: string | number; to?: string; accent?: string }) {
@@ -18,13 +19,19 @@ function Widget({ label, value, to, accent }: { label: string; value: string | n
 }
 
 export function DashboardPage() {
+  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const stats = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboardStats, refetchInterval: 60_000 });
   const recent = useQuery({
     queryKey: ["orders", "recent"],
     queryFn: () => fetchOrderList({}, 0, 10),
   });
-  const phoneTasks = useQuery({ queryKey: ["phone-tasks"], queryFn: fetchPhoneTasks, refetchInterval: 60_000 });
+  const phoneTasks = useQuery({
+    queryKey: ["phone-tasks"],
+    queryFn: fetchPhoneTasks,
+    refetchInterval: 60_000,
+    enabled: profile?.role !== "master",
+  });
   const closeTask = useMutation({
     mutationFn: markPhoneCallDone,
     onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["phone-tasks"] }),

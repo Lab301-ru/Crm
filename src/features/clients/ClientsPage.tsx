@@ -6,8 +6,11 @@ import type { Client } from "@/shared/api/types";
 import { formatPhone } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, EmptyState, ErrorText, Field, Input, Modal, Spinner, Textarea } from "@/shared/ui";
+import { useAuth } from "@/app/AuthProvider";
 
 export function ClientsPage() {
+  const { profile } = useAuth();
+  const canEdit = profile?.role !== "master";
   const [query, setQuery] = useState("");
   const debounced = useDebounced(query, 300);
   const [editing, setEditing] = useState<Client | null>(null);
@@ -48,12 +51,14 @@ export function ClientsPage() {
                 >
                   Заказы
                 </Link>
-                <button
-                  onClick={() => setEditing(c)}
-                  className="rounded-lg bg-surface-2 border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
-                >
-                  Изменить
-                </button>
+                {canEdit && (
+                  <button
+                    onClick={() => setEditing(c)}
+                    className="rounded-lg bg-surface-2 border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
+                  >
+                    Изменить
+                  </button>
+                )}
               </div>
             </li>
           ))}
