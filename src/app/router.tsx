@@ -1,8 +1,9 @@
 import { createBrowserRouter, Navigate, Outlet } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { Layout } from "./Layout";
-import { Spinner } from "@/shared/ui";
+import { Button, Spinner } from "@/shared/ui";
 import { LoginPage } from "@/features/auth/LoginPage";
+import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
 import { OrdersPage } from "@/features/orders/OrdersPage";
 import { OrderPage } from "@/features/orders/OrderPage";
@@ -13,14 +14,36 @@ import { SettingsPage } from "@/features/settings/SettingsPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
 
 function Protected() {
-  const { session, loading } = useAuth();
-  if (loading) return <Spinner className="min-h-dvh items-center" />;
+  const { session, profile, loading, profileLoading, signOut } = useAuth();
+  if (loading || (session && profileLoading)) {
+    return <Spinner className="min-h-dvh items-center" />;
+  }
   if (!session) return <Navigate to="/login" replace />;
+
+  // Сессия есть, но профиля нет: сотрудник деактивирован (RLS не отдаёт
+  // строку) либо профиль ещё не создан администратором.
+  if (!profile || !profile.is_active) {
+    return (
+      <div className="flex min-h-dvh items-center justify-center p-4">
+        <div className="w-full max-w-sm space-y-4 rounded-2xl bg-surface border border-border p-6 text-center">
+          <p className="text-lg font-semibold">Доступ отключён</p>
+          <p className="text-sm text-muted">
+            Ваша учётная запись деактивирована или профиль ещё не создан.
+            Обратитесь к администратору сервисного центра.
+          </p>
+          <Button variant="secondary" className="w-full" onClick={() => void signOut()}>
+            Выйти
+          </Button>
+        </div>
+      </div>
+    );
+  }
   return <Outlet />;
 }
 
 export const router = createBrowserRouter([
   { path: "/login", element: <LoginPage /> },
+  { path: "/reset-password", element: <ResetPasswordPage /> },
   { path: "/status/:token", element: <PublicStatusPage /> },
   {
     element: <Protected />,

@@ -2,13 +2,14 @@ import { useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchNotificationRules, fetchOrgSettings, fetchProfiles,
-  updateNotificationRule, updateOrgSettings, updateProfile,
+  fetchNotificationRules, fetchOrgSettings,
+  updateNotificationRule, updateOrgSettings,
 } from "@/shared/api/settings";
 import { useAuth } from "@/app/AuthProvider";
 import type { OrgSettings } from "@/shared/api/types";
 import { Button, Card, ErrorText, Field, Input, Spinner, Textarea } from "@/shared/ui";
 import { FieldTemplatesEditor } from "./FieldTemplatesEditor";
+import { UsersCard } from "./UsersCard";
 
 type Tab = "org" | "fields" | "notifications" | "users";
 
@@ -199,48 +200,3 @@ function NotificationRulesCard() {
   );
 }
 
-/* ---------------- Сотрудники ---------------- */
-
-const roleLabels: Record<string, string> = {
-  admin: "Администратор",
-  manager: "Менеджер",
-  master: "Мастер",
-};
-
-function UsersCard() {
-  const queryClient = useQueryClient();
-  const profiles = useQuery({ queryKey: ["profiles"], queryFn: fetchProfiles });
-  const toggleActive = useMutation({
-    mutationFn: ({ id, is_active }: { id: string; is_active: boolean }) => updateProfile(id, { is_active }),
-    onSuccess: () => void queryClient.invalidateQueries({ queryKey: ["profiles"] }),
-  });
-
-  if (profiles.isLoading) return <Spinner />;
-
-  return (
-    <Card title="Сотрудники">
-      <p className="mb-3 text-xs text-muted">
-        Новые сотрудники создаются через Supabase Dashboard (Auth → Add user), роль назначается при создании.
-        Здесь — деактивация при увольнении (история и заказы сохраняются).
-      </p>
-      <ul className="divide-y divide-border">
-        {profiles.data?.map((p) => (
-          <li key={p.id} className="flex items-center justify-between gap-3 py-2.5">
-            <div>
-              <p className={`text-sm ${p.is_active ? "" : "text-muted line-through"}`}>{p.full_name}</p>
-              <p className="text-xs text-muted">{roleLabels[p.role]}</p>
-            </div>
-            <Button
-              variant={p.is_active ? "danger" : "secondary"}
-              onClick={() => toggleActive.mutate({ id: p.id, is_active: !p.is_active })}
-              disabled={toggleActive.isPending}
-            >
-              {p.is_active ? "Деактивировать" : "Активировать"}
-            </Button>
-          </li>
-        ))}
-      </ul>
-      <ErrorText error={toggleActive.error} />
-    </Card>
-  );
-}
