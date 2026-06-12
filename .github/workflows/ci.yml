@@ -58,8 +58,11 @@ jobs:
       - name: Тесты шаблонов уведомлений
         run: deno test supabase/functions/_shared/template.test.ts
       - name: Проверка типов всех функций
+        # Запуск из каталога функций: там deno.json (nodeModulesDir=none),
+        # иначе Deno видит корневой package.json и требует node_modules
+        working-directory: supabase/functions
         run: |
-          for f in supabase/functions/*/index.ts; do
+          for f in */index.ts; do
             echo "deno check $f"
             deno check "$f"
           done
