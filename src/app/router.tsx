@@ -11,6 +11,7 @@ import { NewOrderPage } from "@/features/orders/NewOrderPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
 import { CatalogPage } from "@/features/catalog/CatalogPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
 
 function Protected() {
@@ -48,6 +49,8 @@ export const router = createBrowserRouter([
   {
     element: <Protected />,
     children: [
+      // Печатная форма — без Layout: на бумаге не место сайдбару
+      { path: "/orders/:id/print/:docType", element: <PrintDocumentPage /> },
       {
         element: <Layout />,
         children: [

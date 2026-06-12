@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useParams } from "react-router-dom";
+import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addOrderItem, changeStatus, deleteOrderItem, fetchOrder, fetchOrderHistory,
@@ -12,6 +12,7 @@ import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/t
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
 import { useAuth } from "@/app/AuthProvider";
+import { DOC_LABELS, fetchOrderDocuments, type DocType } from "@/shared/api/documents";
 import { PhotosCard } from "./PhotosCard";
 
 export function OrderPage() {
@@ -151,6 +152,9 @@ export function OrderPage() {
 
       {/* Оплата — финансы ведёт менеджер/админ */}
       {!isMaster && <PaymentCard order={o} onSaved={invalidate} />}
+
+      {/* Документы — печатает менеджер/админ при приёмке и выдаче */}
+      {!isMaster && <DocumentsCard order={o} itemsCount={(items.data ?? []).length} />}
 
       {/* QR / отслеживание */}
       <Card title="Отслеживание для клиента">
@@ -357,6 +361,71 @@ function ItemsCard({ orderId, items, totals, onChanged, closed }: {
           <dd>{formatMoney(totals.due_amount)}</dd>
         </div>
       </dl>
+    </Card>
+  );
+}
+
+/* ---------------- Документы ---------------- */
+
+function DocumentsCard({ order, itemsCount }: { order: Order; itemsCount: number }) {
+  const docs = useQuery({
+    queryKey: ["order-documents", order.id],
+    queryFn: () => fetchOrderDocuments(order.id),
+  });
+
+  // Когда какой документ уместен: квитанция — всегда; акт работ — есть
+  // позиции; акт выдачи — заказ готов/выдан; талон — задана гарантия
+  const available: { type: DocType; enabled: boolean; hint: string }[] = [
+    { type: "intake_receipt", enabled: true, hint: "" },
+    { type: "work_act", enabled: itemsCount > 0, hint: "добавьте работы или запчасти" },
+    { type: "issue_act", enabled: ["ready", "issued"].includes(order.status), hint: "доступен для готового или выданного заказа" },
+    { type: "warranty_card", enabled: (order.warranty_days ?? 0) > 0, hint: "укажите срок гарантии" },
+  ];
+
+  return (
+    <Card title="Документы">
+      <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
+        {available.map(({ type, enabled, hint }) => {
+          const existing = docs.data?.find((d) => d.doc_type === type);
+          return enabled ? (
+            <Link
+              key={type}
+              to={`/orders/${order.id}/print/${type}`}
+              target="_blank"
+              className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm hover:border-primary/50"
+            >
+              <span className="block font-medium">🖨 {DOC_LABELS[type]}</span>
+              <span className="block text-xs text-muted">
+                {existing ? `создан ${formatDateTime(existing.created_at)}` : "будет создан при печати"}
+              </span>
+            </Link>
+          ) : (
+            <div
+              key={type}
+              className="rounded-lg border border-border bg-surface-2 px-3 py-2.5 text-sm opacity-50"
+            >
+              <span className="block font-medium">🖨 {DOC_LABELS[type]}</span>
+              <span className="block text-xs text-muted">{hint}</span>
+            </div>
+          );
+        })}
+      </div>
+      <p className="mt-3 text-xs text-muted">
+        Документ печатается из снимка данных и при повторной печати не меняется. Если заказ
+        изменился — откройте печать со свежими данными:{" "}
+        {available.filter((a) => a.enabled).map(({ type }, i, arr) => (
+          <span key={type}>
+            <Link
+              to={`/orders/${order.id}/print/${type}?refresh=1`}
+              target="_blank"
+              className="text-primary hover:underline"
+            >
+              {DOC_LABELS[type].toLowerCase()}
+            </Link>
+            {i < arr.length - 1 ? " · " : ""}
+          </span>
+        ))}
+      </p>
     </Card>
   );
 }

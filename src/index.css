@@ -30,3 +30,19 @@ body {
   scrollbar-width: thin;
   scrollbar-color: var(--color-border) transparent;
 }
+
+/* Печатные формы (Этап 11): бумага светлая, поля задаёт @page */
+@media print {
+  html {
+    color-scheme: light;
+  }
+  body {
+    background: #fff;
+    color: #000;
+  }
+}
+
+@page {
+  size: A4;
+  margin: 10mm;
+}
