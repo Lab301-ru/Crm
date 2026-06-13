@@ -25,4 +25,8 @@ verify_jwt = false  # публичная страница по QR-токену; 
 verify_jwt = false  # Telegram аутентифицируется секретным заголовком
 
 [functions.admin-users]
-verify_jwt = true   # управление сотрудниками; внутри проверка роли admin
+# verify_jwt=false, чтобы платформа не отклоняла OPTIONS-preflight без
+# токена (иначе браузер видит CORS-ошибку с localhost:5173). Аутентификация
+# не теряется: функция сама проверяет JWT и роль admin (admin.auth.getUser
+# + profiles.role) до любого действия.
+verify_jwt = false

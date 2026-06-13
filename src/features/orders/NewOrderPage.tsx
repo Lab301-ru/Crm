@@ -3,7 +3,7 @@ import { Navigate, useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createOrder } from "@/shared/api/orders";
 import { searchClients } from "@/shared/api/clients";
-import { fetchCategories, fetchFieldTemplates, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
+import { fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, FieldTemplate } from "@/shared/api/types";
 import { formatPhone } from "@/shared/lib/format";
@@ -88,15 +88,29 @@ export function NewOrderPage() {
   });
 
   const submit = useMutation({
-    mutationFn: () =>
-      createOrder({
+    mutationFn: async () => {
+      // Бренд (и модель) могут быть введены вручную и отсутствовать в
+      // справочнике — создаём их на лету, чтобы приёмка не вставала.
+      let resolvedBrandId = brandId;
+      let resolvedModelId: string | undefined = modelId || undefined;
+      if (!resolvedBrandId) {
+        if (modelQuery.trim()) {
+          const r = await quickAddModel(categoryId, brandQuery.trim(), modelQuery.trim());
+          resolvedBrandId = r.brand_id;
+          resolvedModelId = r.model_id;
+        } else {
+          const r = await quickAddBrand(brandQuery.trim());
+          resolvedBrandId = r.brand_id;
+        }
+      }
+      return createOrder({
         client: client
           ? { id: client.id }
           : { name: clientName.trim(), phone: clientQuery.trim() },
         device: {
           category_id: categoryId,
-          brand_id: brandId,
-          model_id: modelId || undefined,
+          brand_id: resolvedBrandId,
+          model_id: resolvedModelId,
           serial_number: serial.trim() || undefined,
           completeness: completeness.trim() || undefined,
           appearance: appearance.trim() || undefined,
@@ -109,7 +123,8 @@ export function NewOrderPage() {
           master_id: masterId || undefined,
           prepayment: prepayment ? Number(prepayment) : 0,
         },
-      }),
+      });
+    },
     onSuccess: (res) => {
       void queryClient.invalidateQueries({ queryKey: ["orders"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -117,9 +132,11 @@ export function NewOrderPage() {
     },
   });
 
+  // Бренд можно либо выбрать из справочника (brandId), либо ввести вручную
+  // (brandQuery) — во втором случае он создастся при отправке.
   const canSubmit =
     (client || (clientName.trim() && clientQuery.replace(/\D/g, "").length >= 10)) &&
-    categoryId && brandId && defect.trim();
+    categoryId && (brandId || brandQuery.trim()) && defect.trim();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -212,6 +229,9 @@ export function NewOrderPage() {
                   </div>
                 )}
               </div>
+              {!brandId && brandQuery.trim() && (!brands.data || brands.data.length === 0) && (
+                <p className="mt-1 text-xs text-muted">Новый бренд — добавим в справочник при приёме</p>
+              )}
             </Field>
             <Field label="Модель">
               <div className="relative">

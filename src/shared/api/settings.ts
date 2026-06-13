@@ -18,10 +18,28 @@ export async function updateProfile(id: string, patch: Partial<Profile>): Promis
   throwIfError(error);
 }
 
+/** Дефолт на случай, если строки org_settings ещё нет (свежий проект). */
+const DEFAULT_ORG_SETTINGS: OrgSettings = {
+  id: 1,
+  name: "Сервисный центр",
+  inn: null,
+  address: null,
+  phone: null,
+  working_hours: null,
+  public_contacts: null,
+  order_prefix: "L",
+  default_warranty_days: 30,
+  receipt_disclaimer: null,
+  photo_retention_days: null,
+  timezone: "Europe/Moscow",
+};
+
 export async function fetchOrgSettings(): Promise<OrgSettings> {
-  const { data, error } = await supabase.from("org_settings").select("*").eq("id", 1).single();
+  // maybeSingle: при отсутствии строки вернёт null (а не 406), и интерфейс
+  // не падает — показываем дефолт, пока админ не заполнит реквизиты.
+  const { data, error } = await supabase.from("org_settings").select("*").eq("id", 1).maybeSingle();
   throwIfError(error);
-  return data as OrgSettings;
+  return (data as OrgSettings | null) ?? DEFAULT_ORG_SETTINGS;
 }
 
 export async function updateOrgSettings(patch: Partial<OrgSettings>): Promise<void> {

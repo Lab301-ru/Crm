@@ -40,6 +40,13 @@ export async function quickAddModel(categoryId: string, brand: string, model: st
   return data as { brand_id: string; model_id: string };
 }
 
+/** Добавить бренд на лету без модели (бренда нет в справочнике). */
+export async function quickAddBrand(brand: string): Promise<{ brand_id: string }> {
+  const { data, error } = await supabase.rpc("quick_add_brand", { p_brand: brand });
+  throwIfError(error);
+  return data as { brand_id: string };
+}
+
 export interface ImportRow {
   category: string;
   brand: string;
