@@ -18,7 +18,9 @@ const corsHeaders: Record<string, string> = {
   "Access-Control-Allow-Headers": "authorization, x-client-info, apikey, content-type",
 };
 
-const TOKEN_RE = /^[a-f0-9]{32}$/;
+// Принимаем оба формата токена: 32-символьный hex (старые заказы) и
+// UUID (новый default qr_token = gen_random_uuid()::text).
+const TOKEN_RE = /^[a-f0-9]{32}$|^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 const WINDOW_MS = 60_000;
 const MAX_PER_WINDOW = 30;

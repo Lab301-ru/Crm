@@ -50,7 +50,8 @@ Deno.serve(async (req: Request) => {
     return json({ ok: true });
   }
 
-  const startMatch = text.match(/^\/start(?:\s+([a-f0-9]{32}))?\s*$/);
+  // токен заказа: 32-символьный hex (старые) или UUID (новый default qr_token)
+  const startMatch = text.match(/^\/start(?:\s+([a-f0-9]{32}|[0-9a-f-]{36}))?\s*$/i);
   if (!startMatch) {
     await reply(chatId, "Это бот уведомлений сервисного центра. Чтобы подписаться на статус вашего заказа, отсканируйте QR-код на квитанции.");
     return json({ ok: true });
