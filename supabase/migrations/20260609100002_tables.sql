@@ -173,7 +173,7 @@ create table public.orders (
   payment_status text not null default 'unpaid' check (payment_status in ('unpaid', 'prepaid', 'paid')),
   payment_method text check (payment_method in ('cash', 'card', 'transfer')),
   warranty_days int check (warranty_days >= 0),
-  qr_token text not null unique default encode(gen_random_bytes(16), 'hex'),
+  qr_token text not null unique default gen_random_uuid()::text,
   linked_order_id uuid references public.orders (id),
   deleted_at timestamptz,
   deleted_by uuid references public.profiles (id),
