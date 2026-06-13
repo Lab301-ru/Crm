@@ -145,6 +145,7 @@ export interface OrderItem {
   name: string;
   price: number;
   qty: number;
+  cost_price: number;
 }
 
 export type AttachmentKind = "device_photo" | "serial_photo" | "document" | "receipt" | "warranty_doc";

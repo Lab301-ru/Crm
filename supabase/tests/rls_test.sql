@@ -81,83 +81,74 @@ do $$ begin
   end;
 end $$;
 
--- ===== Мастер 1 =====
+-- ===== Мастер (ограничения сняты: как менеджер, КРОМЕ удаления
+--       заказов, правки org_settings и создания сотрудников) =====
 reset role;
 call test_login('a0000000-0000-0000-0000-000000000003', 'master');
 set role authenticated;
 
--- Видит только свой заказ
+-- Видит ВСЕ заказы и всех клиентов
 do $$ begin
-  if (select count(*) from orders) <> 1 then raise exception 'FAIL: мастер видит чужие заказы'; end if;
-  if (select count(*) from order_list) <> 1 then raise exception 'FAIL: order_list отдаёт чужие'; end if;
-  raise notice 'OK: мастер видит только свой заказ';
+  if (select count(*) from orders) <> 3 then raise exception 'FAIL: мастер видит не все заказы'; end if;
+  if (select count(*) from order_list) <> 3 then raise exception 'FAIL: order_list скрыл заказы от мастера'; end if;
+  if (select count(*) from clients) <> 3 then raise exception 'FAIL: мастер видит не всех клиентов'; end if;
+  raise notice 'OK: мастер видит все заказы и клиентов';
 end $$;
 
--- Видит только клиента своего заказа
-do $$ begin
-  if (select count(*) from clients) <> 1 then raise exception 'FAIL: мастер видит чужих клиентов'; end if;
-  raise notice 'OK: мастер видит только своего клиента';
-end $$;
-
--- Может: диагностика на своём заказе
+-- Может: финансы любого заказа (мастер-ограничение снято)
 do $$
 declare n int;
 begin
-  update orders set diagnostic_result = 'Диагностика ок';
+  update orders set prepayment = 500 where id = current_setting('test.o2_id')::uuid;
   get diagnostics n = row_count;
-  if n <> 1 then raise exception 'FAIL: мастер не смог сохранить диагностику'; end if;
-  raise notice 'OK: мастер сохраняет диагностику своего заказа';
+  if n <> 1 then raise exception 'FAIL: мастер не смог изменить финансы'; end if;
+  raise notice 'OK: мастер правит финансы';
 end $$;
 
--- Не может: финансы (колоночный триггер)
+-- Может: создать заказ
+do $$ begin
+  perform public.create_order('{"name":"Мастер Клиент","phone":"89990000009"}',
+    format('{"category_id":"%s","brand_id":"%s"}',
+      (select id from categories where name_normalized='смартфон'),
+      (select id from brands limit 1))::jsonb,
+    '{"claimed_defect":"Создано мастером"}');
+  raise notice 'OK: мастер создаёт заказ';
+end $$;
+
+-- Может: вести по статусам ЛЮБОЙ заказ (не только свой)
+select public.change_status(current_setting('test.o2_id')::uuid, 'diagnostics', 'Мастер вёл чужой');
+do $$ begin
+  if (select status from orders where id = current_setting('test.o2_id')::uuid) <> 'diagnostics'
+    then raise exception 'FAIL: мастер не сменил статус чужого заказа'; end if;
+  raise notice 'OK: мастер ведёт любой заказ по статусам';
+end $$;
+
+-- Видит выручку на дашборде
+do $$ begin
+  if (public.dashboard_stats()->>'revenue_total') is null
+    then raise exception 'FAIL: мастеру не видна выручка'; end if;
+  raise notice 'OK: мастеру видна выручка';
+end $$;
+
+-- НЕ может: удалить заказ (только админ)
 do $$ begin
   begin
-    update orders set prepayment = 9999;
-    raise exception 'FAIL: мастер изменил предоплату';
+    update orders set deleted_at = now() where id = current_setting('test.o2_id')::uuid;
+    raise exception 'FAIL: мастер удалил заказ';
   exception when others then
-    if sqlerrm like '%Мастеру доступны%' then raise notice 'OK: финансы мастеру запрещены';
+    if sqlerrm like '%только администратору%' then raise notice 'OK: удаление заказа мастеру запрещено';
     else raise; end if;
   end;
 end $$;
 
--- Не может: создать заказ
-do $$ begin
-  begin
-    perform public.create_order('{"name":"X","phone":"89990000009"}',
-      format('{"category_id":"%s","brand_id":"%s"}',
-        (select id from categories where name_normalized='смартфон'),
-        (select id from brands limit 1))::jsonb,
-      '{"claimed_defect":"X"}');
-    raise exception 'FAIL: мастер создал заказ';
-  exception when others then
-    if sqlerrm like '%администратору и менеджеру%' then raise notice 'OK: создание заказа мастеру запрещено';
-    else raise; end if;
-  end;
-end $$;
-
--- Не может: статус чужого заказа
-do $$ begin
-  begin
-    perform public.change_status(current_setting('test.o2_id')::uuid, 'diagnostics', null);
-    raise exception 'FAIL: мастер сменил чужой статус';
-  exception when others then
-    if sqlerrm like '%своих заказов%' then raise notice 'OK: чужой статус мастеру запрещён';
-    else raise; end if;
-  end;
-end $$;
-
--- Может: статус своего заказа
-select public.change_status((select id from orders limit 1), 'diagnostics', 'Начал');
-do $$ begin
-  if (select status from orders limit 1) <> 'diagnostics' then raise exception 'FAIL: статус не сменился'; end if;
-  raise notice 'OK: мастер ведёт свой заказ по статусам';
-end $$;
-
--- Не видит outbox и выручку
-do $$ begin
-  if (select count(*) from notification_outbox) <> 0 then raise exception 'FAIL: мастеру виден outbox'; end if;
-  if (public.dashboard_stats()->>'revenue_total') is not null then raise exception 'FAIL: мастеру видна выручка'; end if;
-  raise notice 'OK: outbox и выручка мастеру не видны';
+-- НЕ может: править настройки организации
+do $$
+declare n int;
+begin
+  update org_settings set name = 'Взлом мастером' where id = 1;
+  get diagnostics n = row_count;
+  if n <> 0 then raise exception 'FAIL: мастер изменил org_settings'; end if;
+  raise notice 'OK: org_settings мастеру недоступны на запись';
 end $$;
 
 -- ===== Анонім =====

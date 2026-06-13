@@ -5,14 +5,12 @@ import { fetchOrderList, fetchStatuses, globalSearch, type OrderFilters } from "
 import { fetchProfiles } from "@/shared/api/settings";
 import { fetchCategories } from "@/shared/api/catalog";
 import { Button, EmptyState, Input, Select, Spinner, StatusBadge } from "@/shared/ui";
-import { useAuth } from "@/app/AuthProvider";
 import { OrdersTable } from "./OrdersTable";
 import { useDebounced } from "@/shared/lib/useDebounced";
 
 const PAGE_SIZE = 25;
 
 export function OrdersPage() {
-  const { profile } = useAuth();
   const [params, setParams] = useSearchParams();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -59,11 +57,9 @@ export function OrdersPage() {
     <div className="space-y-4 p-4">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-lg font-bold">Заказы</h1>
-        {profile?.role !== "master" && (
-          <Link to="/orders/new">
-            <Button>+ Новый заказ</Button>
-          </Link>
-        )}
+        <Link to="/orders/new">
+          <Button>+ Новый заказ</Button>
+        </Link>
       </div>
 
       {/* Поиск: номер, телефон, имя, серийник, IMEI, бренд, модель */}

@@ -1,5 +1,5 @@
 import { useMemo, useState, type FormEvent } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createOrder } from "@/shared/api/orders";
 import { searchClients } from "@/shared/api/clients";
@@ -9,7 +9,6 @@ import type { Client, FieldTemplate } from "@/shared/api/types";
 import { formatPhone, phoneInput } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, Card, ErrorText, Field, Input, Select, Textarea } from "@/shared/ui";
-import { useAuth } from "@/app/AuthProvider";
 import { CustomFieldInput } from "./CustomFieldInput";
 
 /**
@@ -19,7 +18,6 @@ import { CustomFieldInput } from "./CustomFieldInput";
  * Всё на одном экране, обязательного — минимум.
  */
 export function NewOrderPage() {
-  const { profile } = useAuth();
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
@@ -144,9 +142,6 @@ export function NewOrderPage() {
   };
 
   const masters = profiles.data?.filter((p) => p.is_active && p.role !== "manager") ?? [];
-
-  // Приёмка — менеджер и админ (RPC create_order на сервере тоже это проверяет)
-  if (profile?.role === "master") return <Navigate to="/orders" replace />;
 
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-4 p-4">

@@ -22,9 +22,7 @@ function NavIcon({ d }: { d: string }) {
 export function Layout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  const isMaster = profile?.role === "master";
-  // Мастеру не показываем то, чем он не может пользоваться:
-  // настройки (админ) и создание заказа (менеджер/админ)
+  // Настройки — только админу; остальное доступно всем сотрудникам.
   const visibleNav = navItems.filter(
     (item) => item.to !== "/settings" || profile?.role === "admin",
   );
@@ -91,19 +89,17 @@ export function Layout() {
         {navItems.slice(0, 2).map((item) => (
           <MobileNavLink key={item.to} {...item} />
         ))}
-        {!isMaster && (
-          <button
-            onClick={() => navigate("/orders/new")}
-            className="flex flex-1 flex-col items-center justify-center py-2"
-            aria-label="Новый заказ"
-          >
-            <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30">
-              <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                <path d="M12 5v14M5 12h14" />
-              </svg>
-            </span>
-          </button>
-        )}
+        <button
+          onClick={() => navigate("/orders/new")}
+          className="flex flex-1 flex-col items-center justify-center py-2"
+          aria-label="Новый заказ"
+        >
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-primary text-white shadow-lg shadow-primary/30">
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <path d="M12 5v14M5 12h14" />
+            </svg>
+          </span>
+        </button>
         {[navItems[2], ...(profile?.role === "admin" ? [navItems[4]] : [navItems[3]])].map((item) => (
           <MobileNavLink key={item.to} {...item} />
         ))}

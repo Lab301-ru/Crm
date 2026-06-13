@@ -12,14 +12,11 @@ import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/t
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { copyText } from "@/shared/lib/clipboard";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
-import { useAuth } from "@/app/AuthProvider";
 import { DOC_LABELS, fetchOrderDocuments, type DocType } from "@/shared/api/documents";
 import { PhotosCard } from "./PhotosCard";
 
 export function OrderPage() {
   const { id = "" } = useParams();
-  const { profile } = useAuth();
-  const isMaster = profile?.role === "master";
   const queryClient = useQueryClient();
 
   const order = useQuery({ queryKey: ["order", id], queryFn: () => fetchOrder(id) });
@@ -147,7 +144,7 @@ export function OrderPage() {
       </div>
 
       {/* Неисправность и работа мастера */}
-      <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} isMaster={isMaster} />
+      <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} />
 
       {/* Фото устройства */}
       <PhotosCard orderId={id} closed={["issued", "scrapped"].includes(o.status)} />
@@ -155,11 +152,11 @@ export function OrderPage() {
       {/* Работы и запчасти */}
       <ItemsCard orderId={id} items={items.data ?? []} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
 
-      {/* Оплата — финансы ведёт менеджер/админ */}
-      {!isMaster && <PaymentCard order={o} onSaved={invalidate} />}
+      {/* Оплата */}
+      <PaymentCard order={o} onSaved={invalidate} />
 
-      {/* Документы — печатает менеджер/админ при приёмке и выдаче */}
-      {!isMaster && <DocumentsCard order={o} itemsCount={(items.data ?? []).length} />}
+      {/* Документы */}
+      <DocumentsCard order={o} itemsCount={(items.data ?? []).length} />
 
       {/* QR / отслеживание */}
       <Card title="Отслеживание для клиента">
@@ -260,11 +257,10 @@ function Row({ k, v }: { k: string; v: string }) {
 
 /* ---------------- Неисправность / диагностика ---------------- */
 
-function DefectCard({ order, profiles, onSaved, isMaster }: {
+function DefectCard({ order, profiles, onSaved }: {
   order: Order;
   profiles: { id: string; full_name: string; role: string; is_active: boolean }[];
   onSaved: () => void;
-  isMaster: boolean;
 }) {
   const [diagnostic, setDiagnostic] = useState(order.diagnostic_result ?? "");
   const [masterComment, setMasterComment] = useState(order.master_comment ?? "");
@@ -277,14 +273,13 @@ function DefectCard({ order, profiles, onSaved, isMaster }: {
     mutationFn: (v: { orderId: string; patch: Partial<Order> }) => updateOrder(v.orderId, v.patch),
     onSuccess: onSaved,
   });
-  // мастеру сервер запретит менять master_id — не отправляем его вовсе
   const submitPatch = () => save.mutate({
     orderId: order.id,
     patch: {
       diagnostic_result: diagnostic.trim() || null,
       master_comment: masterComment.trim() || null,
       public_comment: publicComment.trim() || null,
-      ...(isMaster ? {} : { master_id: masterId || null }),
+      master_id: masterId || null,
       due_date: dueDate || null,
     },
   });
@@ -313,14 +308,12 @@ function DefectCard({ order, profiles, onSaved, isMaster }: {
           </Field>
         </div>
         <div className="grid grid-cols-2 gap-3">
-          {!isMaster && (
-            <Field label="Мастер">
-              <Select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
-                <option value="">Не назначен</option>
-                {masters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
-              </Select>
-            </Field>
-          )}
+          <Field label="Мастер">
+            <Select value={masterId} onChange={(e) => setMasterId(e.target.value)}>
+              <option value="">Не назначен</option>
+              {masters.map((p) => <option key={p.id} value={p.id}>{p.full_name}</option>)}
+            </Select>
+          </Field>
           <Field label="Плановая готовность">
             <Input type="date" value={dueDate} onChange={(e) => setDueDate(e.target.value)} />
           </Field>
@@ -343,13 +336,16 @@ function ItemsCard({ orderId, items, totals, onChanged, closed }: {
   const [type, setType] = useState<"work" | "part">("work");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
+  const [cost, setCost] = useState("");
   const [qty, setQty] = useState("1");
 
   const add = useMutation({
     mutationFn: () => addOrderItem({
       order_id: orderId, item_type: type, name: name.trim(), price: Number(price), qty: Number(qty) || 1,
+      // закупочная цена учитывается только у запчастей (для работ = 0)
+      cost_price: type === "part" ? Number(cost) || 0 : 0,
     }),
-    onSuccess: () => { setName(""); setPrice(""); setQty("1"); onChanged(); },
+    onSuccess: () => { setName(""); setPrice(""); setCost(""); setQty("1"); onChanged(); },
   });
   const remove = useMutation({ mutationFn: deleteOrderItem, onSuccess: onChanged });
 
@@ -384,7 +380,10 @@ function ItemsCard({ orderId, items, totals, onChanged, closed }: {
             <option value="part">Запчасть</option>
           </Select>
           <Input className="min-w-40 flex-1" placeholder="Наименование" value={name} onChange={(e) => setName(e.target.value)} />
-          <Input className="w-28" type="number" inputMode="numeric" min={0} placeholder="Цена" value={price} onChange={(e) => setPrice(e.target.value)} />
+          <Input className="w-28" type="number" inputMode="numeric" min={0} placeholder="Цена клиенту" value={price} onChange={(e) => setPrice(e.target.value)} />
+          {type === "part" && (
+            <Input className="w-28" type="number" inputMode="numeric" min={0} placeholder="Закупка" value={cost} onChange={(e) => setCost(e.target.value)} />
+          )}
           <Input className="w-20" type="number" inputMode="numeric" min={0.01} step="any" placeholder="Кол-во" value={qty} onChange={(e) => setQty(e.target.value)} />
           <Button variant="secondary" disabled={!name.trim() || !price || add.isPending} onClick={() => add.mutate()}>
             Добавить

@@ -1,12 +1,11 @@
 import { useQuery } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { fetchDashboardStats, fetchPhoneTasks, markPhoneCallDone } from "@/shared/api/settings";
+import { fetchDashboardStats, fetchFinanceStats, fetchPhoneTasks, markPhoneCallDone, type FinancePeriods } from "@/shared/api/settings";
 import { fetchOrderList } from "@/shared/api/orders";
 import { formatMoney, formatPhone } from "@/shared/lib/format";
 import { renderNotification } from "@/shared/lib/notifications";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
-import { useAuth } from "@/app/AuthProvider";
 import { OrdersTable } from "@/features/orders/OrdersTable";
 
 function Widget({ label, value, to, accent }: { label: string; value: string | number; to?: string; accent?: string }) {
@@ -19,10 +18,31 @@ function Widget({ label, value, to, accent }: { label: string; value: string | n
   return to ? <Link to={to}>{body}</Link> : body;
 }
 
+function FinanceCard({ title, data, accent }: { title: string; data: FinancePeriods; accent: string }) {
+  const cells: { label: string; value: number }[] = [
+    { label: "Сегодня", value: data.today },
+    { label: "Месяц", value: data.month },
+    { label: "Год", value: data.year },
+    { label: "Всё время", value: data.all },
+  ];
+  return (
+    <Card title={title}>
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {cells.map((c) => (
+          <div key={c.label}>
+            <p className="text-lg font-bold" style={{ color: accent }}>{formatMoney(c.value)}</p>
+            <p className="mt-0.5 text-xs text-muted">{c.label}</p>
+          </div>
+        ))}
+      </div>
+    </Card>
+  );
+}
+
 export function DashboardPage() {
-  const { profile } = useAuth();
   const queryClient = useQueryClient();
   const stats = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboardStats, refetchInterval: 60_000 });
+  const finance = useQuery({ queryKey: ["finance"], queryFn: fetchFinanceStats, refetchInterval: 60_000 });
   const recent = useQuery({
     queryKey: ["orders", "recent"],
     queryFn: () => fetchOrderList({}, 0, 10),
@@ -31,7 +51,6 @@ export function DashboardPage() {
     queryKey: ["phone-tasks"],
     queryFn: fetchPhoneTasks,
     refetchInterval: 60_000,
-    enabled: profile?.role !== "master",
   });
   const closeTask = useMutation({
     mutationFn: markPhoneCallDone,
@@ -53,9 +72,14 @@ export function DashboardPage() {
           <Widget label="Ожидают запчасти" value={s?.awaiting_parts ?? 0} to="/orders?status=awaiting_parts" accent="#F97316" />
           <Widget label="Готовы к выдаче" value={s?.ready ?? 0} to="/orders?status=ready" accent="#22C55E" />
           <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} />
-          {s?.revenue_today != null && (
-            <Widget label="Выручка за сегодня" value={formatMoney(s.revenue_today)} accent="#22C55E" />
-          )}
+        </div>
+      )}
+
+      {/* Финансы: выручка и чистая прибыль за периоды (по дате выдачи) */}
+      {finance.data && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <FinanceCard title="Выручка" data={finance.data.revenue} accent="#22C55E" />
+          <FinanceCard title="Чистая прибыль" data={finance.data.profit} accent="#3B82F6" />
         </div>
       )}
 

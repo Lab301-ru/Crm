@@ -7,6 +7,23 @@ export async function fetchDashboardStats(): Promise<DashboardStats> {
   return data as DashboardStats;
 }
 
+export interface FinancePeriods {
+  today: number;
+  month: number;
+  year: number;
+  all: number;
+}
+export interface FinanceStats {
+  revenue: FinancePeriods;
+  profit: FinancePeriods;
+}
+
+export async function fetchFinanceStats(): Promise<FinanceStats> {
+  const { data, error } = await supabase.rpc("finance_stats");
+  throwIfError(error);
+  return data as FinanceStats;
+}
+
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase.from("profiles").select("*").order("full_name");
   throwIfError(error);
