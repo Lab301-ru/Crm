@@ -9,7 +9,7 @@ export type DocType = "intake_receipt" | "work_act" | "issue_act" | "warranty_ca
 
 export const DOC_LABELS: Record<DocType, string> = {
   intake_receipt: "Квитанция о приёме в ремонт",
-  work_act: "Акт выполненных работ",
+  work_act: "Акт выполненных работ + гарантийный талон",
   issue_act: "Акт выдачи устройства",
   warranty_card: "Гарантийный талон",
 };
@@ -29,6 +29,7 @@ export interface DocSnapshot {
     phone: string | null;
     working_hours: string | null;
     receipt_disclaimer: string | null;
+    default_warranty_days: number;
   };
   order: {
     display_number: string;
@@ -125,6 +126,7 @@ async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnap
       phone: org.phone,
       working_hours: org.working_hours,
       receipt_disclaimer: org.receipt_disclaimer,
+      default_warranty_days: org.default_warranty_days,
     },
     order: {
       display_number: order.display_number,

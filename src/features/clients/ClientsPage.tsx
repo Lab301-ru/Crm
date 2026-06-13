@@ -3,7 +3,7 @@ import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { searchClients, updateClient } from "@/shared/api/clients";
 import type { Client } from "@/shared/api/types";
-import { formatPhone } from "@/shared/lib/format";
+import { formatPhone, isValidEmail, phoneInput } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, EmptyState, ErrorText, Field, Input, Modal, Spinner, Textarea } from "@/shared/ui";
 import { useAuth } from "@/app/AuthProvider";
@@ -75,10 +75,11 @@ export function ClientsPage() {
 function EditClientModal({ client, onClose }: { client: Client; onClose: () => void }) {
   const queryClient = useQueryClient();
   const [name, setName] = useState(client.name);
-  const [phone, setPhone] = useState(client.phone_display ?? client.phone);
+  const [phone, setPhone] = useState(phoneInput(client.phone_display ?? client.phone));
   const [messenger, setMessenger] = useState(client.messenger ?? "");
   const [email, setEmail] = useState(client.email ?? "");
   const [comment, setComment] = useState(client.comment ?? "");
+  const emailInvalid = email.trim().length > 0 && !isValidEmail(email);
 
   const save = useMutation({
     mutationFn: () => updateClient(client.id, {
@@ -102,19 +103,20 @@ function EditClientModal({ client, onClose }: { client: Client; onClose: () => v
           <Input value={name} onChange={(e) => setName(e.target.value)} />
         </Field>
         <Field label="Телефон" required>
-          <Input type="tel" value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <Input type="tel" inputMode="tel" value={phone} onChange={(e) => setPhone(phoneInput(e.target.value))} />
         </Field>
-        <Field label="Мессенджер">
-          <Input value={messenger} onChange={(e) => setMessenger(e.target.value)} placeholder="Telegram, WhatsApp…" />
+        <Field label="WhatsApp / Telegram">
+          <Input value={messenger} onChange={(e) => setMessenger(e.target.value)} placeholder="@nick или wa.me/7…" />
         </Field>
         <Field label="Email">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+          <Input type="email" inputMode="email" value={email} onChange={(e) => setEmail(e.target.value)} placeholder="client@example.com" />
+          {emailInvalid && <p className="mt-1 text-xs text-danger">Некорректный email</p>}
         </Field>
         <Field label="Комментарий">
           <Textarea value={comment} onChange={(e) => setComment(e.target.value)} />
         </Field>
         <ErrorText error={save.error} />
-        <Button className="w-full" disabled={!name.trim() || !phone.trim() || save.isPending} onClick={() => save.mutate()}>
+        <Button className="w-full" disabled={!name.trim() || !phone.trim() || emailInvalid || save.isPending} onClick={() => save.mutate()}>
           Сохранить
         </Button>
       </div>

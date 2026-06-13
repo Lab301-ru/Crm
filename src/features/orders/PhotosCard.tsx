@@ -82,7 +82,7 @@ export function PhotosCard({ orderId, closed }: { orderId: string; closed: boole
       ) : photos.length > 0 ? (
         <div className="grid grid-cols-3 gap-2 sm:grid-cols-4 lg:grid-cols-6">
           {photos.map((a) => {
-            const url = urls.data?.get(a.storage_path);
+            const url = urls.data?.[a.storage_path];
             return (
               <button
                 key={a.id}
@@ -111,7 +111,7 @@ export function PhotosCard({ orderId, closed }: { orderId: string; closed: boole
         {preview && (
           <div className="space-y-3">
             <img
-              src={urls.data?.get(preview.storage_path)}
+              src={urls.data?.[preview.storage_path]}
               alt={preview.file_name}
               className="max-h-[70vh] w-full rounded-lg object-contain"
             />

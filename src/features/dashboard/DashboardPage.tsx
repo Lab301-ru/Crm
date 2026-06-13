@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 import { fetchDashboardStats, fetchPhoneTasks, markPhoneCallDone } from "@/shared/api/settings";
 import { fetchOrderList } from "@/shared/api/orders";
 import { formatMoney, formatPhone } from "@/shared/lib/format";
+import { renderNotification } from "@/shared/lib/notifications";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
 import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { useAuth } from "@/app/AuthProvider";
@@ -68,7 +69,7 @@ export function DashboardPage() {
                     {task.payload.order_number}
                   </Link>
                   <p className="truncate text-xs text-muted">
-                    {task.payload.client_name} · {task.payload.template}
+                    {renderNotification(task)}
                   </p>
                 </div>
                 <div className="flex shrink-0 gap-2">

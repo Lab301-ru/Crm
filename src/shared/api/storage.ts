@@ -47,16 +47,21 @@ export async function uploadOrderPhoto(
   }
 }
 
-/** Бакет приватный: для показа фото берём signed URL пачкой на час. */
-export async function signedPhotoUrls(paths: string[], expiresIn = 3600): Promise<Map<string, string>> {
-  if (paths.length === 0) return new Map();
+/**
+ * Бакет приватный: для показа фото берём signed URL пачкой на час.
+ * Возвращаем обычный объект (а не Map): результат кэшируется React Query
+ * и persist'ится в localStorage (PWA), а Map при JSON-сериализации
+ * превращается в {} и теряет .get() — отсюда падал просмотр фото.
+ */
+export async function signedPhotoUrls(paths: string[], expiresIn = 3600): Promise<Record<string, string>> {
+  if (paths.length === 0) return {};
   const { data, error } = await supabase.storage
     .from(PHOTOS_BUCKET)
     .createSignedUrls(paths, expiresIn);
   throwIfError(error);
-  const map = new Map<string, string>();
+  const map: Record<string, string> = {};
   for (const d of data ?? []) {
-    if (d.path && d.signedUrl) map.set(d.path, d.signedUrl);
+    if (d.path && d.signedUrl) map[d.path] = d.signedUrl;
   }
   return map;
 }

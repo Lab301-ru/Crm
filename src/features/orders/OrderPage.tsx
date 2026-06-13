@@ -10,6 +10,7 @@ import { fetchDevice, fetchFieldTemplates } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
+import { copyText } from "@/shared/lib/clipboard";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
 import { useAuth } from "@/app/AuthProvider";
 import { DOC_LABELS, fetchOrderDocuments, type DocType } from "@/shared/api/documents";
@@ -166,9 +167,7 @@ export function OrderPage() {
           <QrImage url={trackingUrl} />
           <div className="min-w-0 flex-1 space-y-2 text-sm">
             <code className="block rounded bg-surface-2 px-2 py-1 text-xs break-all">{trackingUrl}</code>
-            <Button variant="secondary" type="button" onClick={() => void navigator.clipboard.writeText(trackingUrl)}>
-              Скопировать ссылку
-            </Button>
+            <CopyLinkButton url={trackingUrl} />
             <p className="text-xs text-muted">
               Этот же QR печатается на квитанции — клиент может отсканировать прямо с экрана.
               На странице видно только: номер, статус с историей, даты и комментарий сервиса.
@@ -218,6 +217,21 @@ export function OrderPage() {
         </div>
       </Modal>
     </div>
+  );
+}
+
+/** Кнопка копирования ссылки с фолбэком и подтверждением «Скопировано». */
+function CopyLinkButton({ url }: { url: string }) {
+  const [copied, setCopied] = useState(false);
+  const onCopy = async () => {
+    const ok = await copyText(url);
+    setCopied(ok);
+    if (ok) setTimeout(() => setCopied(false), 2000);
+  };
+  return (
+    <Button variant="secondary" type="button" onClick={() => void onCopy()}>
+      {copied ? "Скопировано ✓" : "Скопировать ссылку"}
+    </Button>
   );
 }
 
@@ -400,13 +414,12 @@ function DocumentsCard({ order, itemsCount }: { order: Order; itemsCount: number
     queryFn: () => fetchOrderDocuments(order.id),
   });
 
-  // Когда какой документ уместен: квитанция — всегда; акт работ — есть
-  // позиции; акт выдачи — заказ готов/выдан; талон — задана гарантия
+  // Когда какой документ уместен: квитанция — всегда; акт работ (с
+  // гарантийным талоном 2-в-1) — есть позиции; акт выдачи — заказ готов/выдан.
   const available: { type: DocType; enabled: boolean; hint: string }[] = [
     { type: "intake_receipt", enabled: true, hint: "" },
     { type: "work_act", enabled: itemsCount > 0, hint: "добавьте работы или запчасти" },
     { type: "issue_act", enabled: ["ready", "issued"].includes(order.status), hint: "доступен для готового или выданного заказа" },
-    { type: "warranty_card", enabled: (order.warranty_days ?? 0) > 0, hint: "укажите срок гарантии" },
   ];
 
   return (

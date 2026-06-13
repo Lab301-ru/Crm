@@ -221,7 +221,14 @@ export interface PhoneTask {
   order_id: string;
   event_type: string;
   recipient: string | null;
-  payload: { order_number?: string; client_name?: string; template?: string };
+  payload: {
+    order_number?: string;
+    client_name?: string;
+    template?: string;
+    status_label?: string;
+    due_date?: string | null;
+    qr_token?: string;
+  };
   status: string;
   created_at: string;
 }

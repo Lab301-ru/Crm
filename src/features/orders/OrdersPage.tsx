@@ -137,8 +137,14 @@ export function OrdersPage() {
           <option value="">Категория: все</option>
           {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
         </Select>
-        <Input type="date" value={params.get("from") ?? ""} onChange={(e) => setFilter("from", e.target.value)} />
-        <Input type="date" value={params.get("to") ?? ""} onChange={(e) => setFilter("to", e.target.value)} />
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          Дата приёма: с
+          <Input type="date" value={params.get("from") ?? ""} onChange={(e) => setFilter("from", e.target.value)} />
+        </label>
+        <label className="flex flex-col gap-1 text-xs text-muted">
+          Дата приёма: по
+          <Input type="date" value={params.get("to") ?? ""} onChange={(e) => setFilter("to", e.target.value)} />
+        </label>
       </div>
 
       {/* Список */}

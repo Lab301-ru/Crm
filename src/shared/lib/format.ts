@@ -29,3 +29,28 @@ export function formatPhone(phone: string | null | undefined): string {
   const m = phone.match(/^\+7(\d{3})(\d{3})(\d{2})(\d{2})$/);
   return m ? `+7 ${m[1]} ${m[2]}-${m[3]}-${m[4]}` : phone;
 }
+
+/**
+ * Маска ввода телефона РФ: «+7» стоит по умолчанию, дальше до 10 цифр.
+ * Корректно обрабатывает ввод с 8, 7, +7 или сразу с 9 — без дублей.
+ * Сервер (normalize_phone) всё равно приводит номер к каноничному виду.
+ */
+export function phoneInput(raw: string): string {
+  let d = raw.replace(/\D/g, "");
+  if (d.startsWith("8")) d = "7" + d.slice(1);
+  else if (d.startsWith("9") && d.length <= 10) d = "7" + d;
+  if (!d.startsWith("7")) d = "7" + d;
+  d = d.slice(0, 11);
+  const rest = d.slice(1);
+  let out = "+7";
+  if (rest.length) out += " " + rest.slice(0, 3);
+  if (rest.length > 3) out += " " + rest.slice(3, 6);
+  if (rest.length > 6) out += "-" + rest.slice(6, 8);
+  if (rest.length > 8) out += "-" + rest.slice(8, 10);
+  return out;
+}
+
+/** Простая проверка email для форм (БД дополнительно держит CHECK). */
+export function isValidEmail(email: string): boolean {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim());
+}

@@ -13,6 +13,7 @@ import { CatalogPage } from "@/features/catalog/CatalogPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 function Protected() {
   const { session, profile, loading, profileLoading, signOut } = useAuth();
@@ -49,8 +50,8 @@ export const router = createBrowserRouter([
   {
     element: <Protected />,
     children: [
-      // Печатная форма — без Layout: на бумаге не место сайдбару
-      { path: "/orders/:id/print/:docType", element: <PrintDocumentPage /> },
+      // Печатная форма — без Layout: на бумаге не место сайдбору
+      { path: "/orders/:id/print/:docType", element: <ErrorBoundary><PrintDocumentPage /></ErrorBoundary> },
       {
         element: <Layout />,
         children: [

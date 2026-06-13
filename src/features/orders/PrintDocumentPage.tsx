@@ -271,10 +271,56 @@ function WorkAct({ s }: { s: DocSnapshot }) {
         Перечисленные работы выполнены полностью. Заказчик по объёму, качеству и срокам
         выполнения работ претензий не имеет.
       </p>
+
+      {/* Гарантийный талон на том же бланке (2-в-1) */}
+      <div className="my-4 border-t-2 border-dashed border-neutral-400 pt-3">
+        <h2 className="mb-2 text-center text-[14px] font-bold">Гарантийный талон</h2>
+        <WarrantyBlock s={s} />
+      </div>
+
       <Signatures
         left={`Исполнитель${s.master_name ? ` (${s.master_name})` : ""}`}
         right="Заказчик"
       />
+    </>
+  );
+}
+
+/** Содержимое гарантии (без заголовка/подписей) — общий блок для 2-в-1 и талона. */
+function WarrantyBlock({ s }: { s: DocSnapshot }) {
+  const works = s.items.filter((i) => i.item_type === "work");
+  const days = s.order.warranty_days ?? s.org.default_warranty_days;
+  const warrantyUntil = days
+    ? new Date(new Date(s.generated_at).getTime() + days * 86_400_000)
+    : null;
+  return (
+    <>
+      {works.length > 0 && (
+        <section className="mb-2">
+          <p className="mb-1 font-semibold">Работы, на которые распространяется гарантия:</p>
+          <ul className="list-disc pl-5">
+            {works.map((w, i) => <li key={i}>{w.name}</li>)}
+          </ul>
+        </section>
+      )}
+      <section className="mb-2">
+        <InfoRow
+          k="Гарантийный срок"
+          v={days && warrantyUntil
+            ? `${days} дн. с даты выдачи, до ${formatDate(warrantyUntil.toISOString())}`
+            : "не предоставляется"}
+        />
+      </section>
+      <div className="text-[10px] leading-snug text-neutral-600">
+        <p className="mb-1 font-semibold text-black">Условия гарантии:</p>
+        <p>
+          Гарантия распространяется только на перечисленные выше работы и установленные запчасти.
+          Гарантия не распространяется на иные узлы устройства, на повреждения, возникшие в результате
+          ударов, попадания влаги, скачков напряжения, вмешательства третьих лиц, нарушения условий
+          эксплуатации, а также на программное обеспечение и данные. Гарантийное обслуживание
+          производится при предъявлении настоящего талона.
+        </p>
+      </div>
     </>
   );
 }
@@ -311,10 +357,6 @@ function IssueAct({ s }: { s: DocSnapshot }) {
 /* ---------------- Гарантийный талон ---------------- */
 
 function WarrantyCard({ s }: { s: DocSnapshot }) {
-  const works = s.items.filter((i) => i.item_type === "work");
-  const warrantyUntil = s.order.warranty_days
-    ? new Date(new Date(s.generated_at).getTime() + s.order.warranty_days * 86_400_000)
-    : null;
   return (
     <>
       <DocTitle s={s} />
@@ -322,34 +364,7 @@ function WarrantyCard({ s }: { s: DocSnapshot }) {
         <InfoRow k="Клиент" v={`${s.client.name}, ${s.client.phone}`} />
       </section>
       <DeviceBlock s={s} />
-      {works.length > 0 && (
-        <section className="mb-3">
-          <p className="mb-1 font-semibold">Выполненные работы, на которые распространяется гарантия:</p>
-          <ul className="list-disc pl-5">
-            {works.map((w, i) => <li key={i}>{w.name}</li>)}
-          </ul>
-        </section>
-      )}
-      <section className="mb-3">
-        <InfoRow
-          k="Гарантийный срок"
-          v={
-            s.order.warranty_days && warrantyUntil
-              ? `${s.order.warranty_days} дн. с даты выдачи, до ${formatDate(warrantyUntil.toISOString())}`
-              : "не предоставляется"
-          }
-        />
-      </section>
-      <div className="mb-3 text-[10px] leading-snug text-neutral-600">
-        <p className="mb-1 font-semibold text-black">Условия гарантии:</p>
-        <p>
-          Гарантия распространяется только на перечисленные выше работы и установленные запчасти.
-          Гарантия не распространяется на иные узлы устройства, на повреждения, возникшие в результате
-          ударов, попадания влаги, скачков напряжения, вмешательства третьих лиц, нарушения условий
-          эксплуатации, а также на программное обеспечение и данные. Гарантийное обслуживание
-          производится при предъявлении настоящего талона.
-        </p>
-      </div>
+      <WarrantyBlock s={s} />
       <Signatures left="Исполнитель (подпись, печать)" right="Клиент" />
     </>
   );

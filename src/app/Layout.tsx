@@ -1,6 +1,7 @@
 import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { OfflineBanner } from "./OfflineBanner";
+import { ErrorBoundary } from "./ErrorBoundary";
 
 const navItems = [
   { to: "/", label: "Дашборд", icon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-18v6h8V3h-8z" },
@@ -68,8 +69,20 @@ export function Layout() {
 
       {/* Контент */}
       <main className="flex-1 md:ml-56 pb-20 md:pb-6">
+        {/* Мобильная шапка: логотип виден на телефоне (зад. 12) и отступ
+            под вырез/часы статус-бара (зад. 3, safe-area-inset-top) */}
+        <header
+          className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
+          style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+        >
+          <span className="text-base font-bold tracking-tight">
+            ultra<span className="text-primary">CRM</span>
+          </span>
+        </header>
         <OfflineBanner />
-        <Outlet />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
       </main>
 
       {/* Нижняя навигация — смартфон */}

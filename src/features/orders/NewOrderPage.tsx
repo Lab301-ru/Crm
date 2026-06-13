@@ -6,7 +6,7 @@ import { searchClients } from "@/shared/api/clients";
 import { fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, FieldTemplate } from "@/shared/api/types";
-import { formatPhone } from "@/shared/lib/format";
+import { formatPhone, phoneInput } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, Card, ErrorText, Field, Input, Select, Textarea } from "@/shared/ui";
 import { useAuth } from "@/app/AuthProvider";
@@ -24,7 +24,7 @@ export function NewOrderPage() {
   const queryClient = useQueryClient();
 
   // — клиент —
-  const [clientQuery, setClientQuery] = useState("");
+  const [clientQuery, setClientQuery] = useState("+7 ");
   const [client, setClient] = useState<Client | null>(null);
   const [clientName, setClientName] = useState("");
   const debouncedClient = useDebounced(clientQuery, 300);
@@ -170,7 +170,7 @@ export function NewOrderPage() {
                 inputMode="tel"
                 placeholder="+7 999 123-45-67"
                 value={clientQuery}
-                onChange={(e) => setClientQuery(e.target.value)}
+                onChange={(e) => setClientQuery(phoneInput(e.target.value))}
                 autoFocus
               />
             </Field>

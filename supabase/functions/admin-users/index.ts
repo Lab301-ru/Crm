@@ -93,12 +93,15 @@ Deno.serve(async (req: Request) => {
         });
         if (error) return json({ error: error.message }, 400, cors);
 
-        const { error: profileError } = await admin.from("profiles").insert({
+        // upsert: если профиль уже создан триггером на auth.users, не падаем
+        // с profiles_pkey, а проставляем корректные имя/роль/активность.
+        const { error: profileError } = await admin.from("profiles").upsert({
           id: data.user.id,
           full_name: full_name.trim(),
           phone: phone?.trim() || null,
           role,
-        });
+          is_active: true,
+        }, { onConflict: "id" });
         if (profileError) {
           // не оставляем auth-пользователя без профиля
           await admin.auth.admin.deleteUser(data.user.id);
