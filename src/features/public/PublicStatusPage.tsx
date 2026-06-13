@@ -142,6 +142,9 @@ export function PublicStatusPage() {
             </div>
           </div>
         )}
+        <p className="mt-4 text-center text-xs text-muted/60">
+          ultra<span className="text-primary/60">CRM</span>
+        </p>
       </div>
     </div>
   );

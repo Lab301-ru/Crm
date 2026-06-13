@@ -12,8 +12,8 @@ export default defineConfig({
       registerType: "autoUpdate",
       includeAssets: ["icons/apple-touch-icon.png", "icons/icon.svg"],
       manifest: {
-        name: "CRM сервисного центра",
-        short_name: "СЦ CRM",
+        name: "ultraCRM — CRM сервисного центра",
+        short_name: "ultraCRM",
         description: "Приёмка, ремонт и выдача устройств: заказы, клиенты, статусы, документы",
         lang: "ru",
         start_url: "/",

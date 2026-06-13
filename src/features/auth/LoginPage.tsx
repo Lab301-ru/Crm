@@ -52,7 +52,7 @@ export function LoginPage() {
         className="w-full max-w-sm space-y-4 rounded-2xl bg-surface border border-border p-6"
       >
         <div className="pb-2 text-center">
-          <h1 className="text-xl font-bold">Сервис CRM</h1>
+          <h1 className="text-xl font-bold">ultra<span className="text-primary">CRM</span></h1>
           <p className="mt-1 text-sm text-muted">
             {mode === "login" ? "Вход для сотрудников" : "Восстановление пароля"}
           </p>

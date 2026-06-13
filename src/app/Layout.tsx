@@ -33,7 +33,7 @@ export function Layout() {
       {/* Sidebar — планшет и ПК */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:fixed md:inset-y-0 border-r border-border bg-surface">
         <div className="px-4 py-5">
-          <span className="text-lg font-bold tracking-tight">Сервис CRM</span>
+          <span className="text-lg font-bold tracking-tight">ultra<span className="text-primary">CRM</span></span>
         </div>
         <nav className="flex-1 space-y-1 px-2">
           {visibleNav.map((item) => (
