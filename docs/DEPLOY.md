@@ -58,9 +58,11 @@ supabase secrets set \
 
 Telegram или SMTP можно не настраивать вовсе: правила этих каналов просто выключаются в **Настройки → Уведомления** внутри CRM.
 
-## 4. Расписание доставки уведомлений (pg_cron)
+## 4. Расписание доставки уведомлений (pg_cron + Vault)
 
-Dashboard → **SQL Editor** → вставить содержимое `supabase/cron_setup.sql`, подставив `<PROJECT_REF>` и `<SERVICE_ROLE_KEY>` → Run. Проверка: `select * from cron.job;` — должна быть строка `notify-dispatch-every-minute`.
+Уведомления работают по схеме «очередь + pull»: БД пишет в `notification_outbox`, pg_cron раз в минуту дёргает Edge Function `notify-dispatch`, та забирает очередь и отправляет. `ALTER DATABASE` не нужен; service_role-ключ хранится в Vault, а не в тексте задания.
+
+Dashboard → **SQL Editor** → вставить содержимое `supabase/cron_setup.sql`, подставив только `<SERVICE_ROLE_KEY>` (URL проекта уже прописан) → Run. Проверка: `select jobname, active from cron.job;` — должна быть строка `notify-dispatch-every-minute`.
 
 ## 5. Telegram-бот (если нужен канал Telegram)
 
