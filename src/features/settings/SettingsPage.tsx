@@ -23,7 +23,10 @@ const tabs: { id: Tab; label: string }[] = [
 export function SettingsPage() {
   const { profile, signOut } = useAuth();
   const isAdmin = profile?.role === "admin";
-  const [tab, setTab] = useState<Tab>("org");
+  // Сотрудникам доступны «Поля устройств» и «Уведомления»;
+  // «Организация» и «Сотрудники» — только администратору.
+  const visibleTabs = tabs.filter((t) => isAdmin || (t.id !== "org" && t.id !== "users"));
+  const [tab, setTab] = useState<Tab>(isAdmin ? "org" : "fields");
 
   return (
     <div className="space-y-4 p-4">
@@ -38,32 +41,24 @@ export function SettingsPage() {
         Справочник техники →
       </Link>
 
-      {!isAdmin ? (
-        <Card>
-          <p className="text-sm text-muted">Настройки доступны администратору.</p>
-        </Card>
-      ) : (
-        <>
-          <div className="flex gap-1.5 overflow-x-auto pb-1">
-            {tabs.map((t) => (
-              <button
-                key={t.id}
-                onClick={() => setTab(t.id)}
-                className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium ${
-                  tab === t.id ? "border-primary bg-primary/15 text-primary" : "border-border bg-surface text-muted hover:text-text"
-                }`}
-              >
-                {t.label}
-              </button>
-            ))}
-          </div>
+      <div className="flex gap-1.5 overflow-x-auto pb-1">
+        {visibleTabs.map((t) => (
+          <button
+            key={t.id}
+            onClick={() => setTab(t.id)}
+            className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-medium ${
+              tab === t.id ? "border-primary bg-primary/15 text-primary" : "border-border bg-surface text-muted hover:text-text"
+            }`}
+          >
+            {t.label}
+          </button>
+        ))}
+      </div>
 
-          {tab === "org" && <OrgSettingsCard />}
-          {tab === "fields" && <FieldTemplatesEditor />}
-          {tab === "notifications" && <NotificationRulesCard />}
-          {tab === "users" && <UsersCard />}
-        </>
-      )}
+      {tab === "org" && isAdmin && <OrgSettingsCard />}
+      {tab === "fields" && <FieldTemplatesEditor />}
+      {tab === "notifications" && <NotificationRulesCard />}
+      {tab === "users" && isAdmin && <UsersCard />}
     </div>
   );
 }
@@ -130,6 +125,19 @@ const channelLabels: Record<string, string> = {
   phone_call: "Звонок",
 };
 
+// Превью шаблона: подставляем примерные значения, чтобы в списке не висели
+// технические {плейсхолдеры} — они остаются только в поле редактирования.
+const PREVIEW_VALUES: Record<string, string> = {
+  order_number: "L-10042",
+  client_name: "Иван Иванов",
+  status_label: "Готов",
+  due_date: "25.06.2026",
+  tracking_url: "(ссылка для клиента)",
+};
+function previewTemplate(t: string): string {
+  return t.replace(/\{(\w+)\}/g, (_m, k: string) => PREVIEW_VALUES[k] ?? "").replace(/\s{2,}/g, " ").trim();
+}
+
 function NotificationRulesCard() {
   const queryClient = useQueryClient();
   const rules = useQuery({ queryKey: ["notification-rules"], queryFn: fetchNotificationRules });
@@ -150,9 +158,6 @@ function NotificationRulesCard() {
 
   return (
     <Card title="События и каналы">
-      <p className="mb-3 text-xs text-muted">
-        Плейсхолдеры шаблонов: {"{order_number} {client_name} {status_label} {due_date} {tracking_url}"}
-      </p>
       <ul className="divide-y divide-border">
         {rules.data?.map((rule) => (
           <li key={rule.id} className="py-2.5">
@@ -168,6 +173,9 @@ function NotificationRulesCard() {
                       value={editingTemplate.template}
                       onChange={(e) => setEditingTemplate({ id: rule.id, template: e.target.value })}
                     />
+                    <p className="text-xs text-muted">
+                      Подстановки (вставляются автоматически): {"{order_number} {client_name} {status_label} {due_date} {tracking_url}"}
+                    </p>
                     <div className="flex gap-2">
                       <Button variant="secondary" disabled={saveTemplate.isPending} onClick={() => saveTemplate.mutate()}>Сохранить</Button>
                       <Button variant="ghost" onClick={() => setEditingTemplate(null)}>Отмена</Button>
@@ -175,10 +183,11 @@ function NotificationRulesCard() {
                   </div>
                 ) : (
                   <button
+                    title="Нажмите, чтобы изменить шаблон"
                     className="mt-0.5 text-left text-xs text-muted hover:text-text"
                     onClick={() => setEditingTemplate({ id: rule.id, template: rule.template })}
                   >
-                    {rule.template}
+                    {previewTemplate(rule.template)}
                   </button>
                 )}
               </div>

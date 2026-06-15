@@ -22,10 +22,9 @@ function NavIcon({ d }: { d: string }) {
 export function Layout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
-  // Настройки — только админу; остальное доступно всем сотрудникам.
-  const visibleNav = navItems.filter(
-    (item) => item.to !== "/settings" || profile?.role === "admin",
-  );
+  // Все сотрудники видят полный набор разделов; ограничения — внутри
+  // «Настроек» (вкладки «Организация» и «Сотрудники» — только админу).
+  const visibleNav = navItems;
 
   return (
     <div className="min-h-dvh md:flex">
@@ -100,7 +99,8 @@ export function Layout() {
             </svg>
           </span>
         </button>
-        {[navItems[2], ...(profile?.role === "admin" ? [navItems[4]] : [navItems[3]])].map((item) => (
+        {/* Клиенты + Настройки (Справочник доступен ссылкой внутри Настроек) */}
+        {[navItems[2], navItems[4]].map((item) => (
           <MobileNavLink key={item.to} {...item} />
         ))}
       </nav>
