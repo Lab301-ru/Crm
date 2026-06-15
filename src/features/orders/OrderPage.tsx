@@ -11,6 +11,7 @@ import { fetchProfiles } from "@/shared/api/settings";
 import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
 import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { copyText } from "@/shared/lib/clipboard";
+import { clearDraft, useDraftLoad, useDraftSave } from "@/shared/lib/useFormDraft";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
 import { DOC_LABELS, fetchOrderDocuments, type DocType } from "@/shared/api/documents";
 import { PhotosCard } from "./PhotosCard";
@@ -262,16 +263,23 @@ function DefectCard({ order, profiles, onSaved }: {
   profiles: { id: string; full_name: string; role: string; is_active: boolean }[];
   onSaved: () => void;
 }) {
-  const [diagnostic, setDiagnostic] = useState(order.diagnostic_result ?? "");
-  const [masterComment, setMasterComment] = useState(order.master_comment ?? "");
-  const [publicComment, setPublicComment] = useState(order.public_comment ?? "");
-  const [masterId, setMasterId] = useState(order.master_id ?? "");
-  const [dueDate, setDueDate] = useState(order.due_date ?? "");
+  // Черновик диагностики на этот заказ — переживает сворачивание вкладки/навигацию.
+  const draftKey = `draft:order-defect:${order.id}`;
+  const draft = useDraftLoad<{
+    diagnostic: string; masterComment: string; publicComment: string; masterId: string; dueDate: string;
+  }>(draftKey);
+  const [diagnostic, setDiagnostic] = useState(draft.diagnostic ?? order.diagnostic_result ?? "");
+  const [masterComment, setMasterComment] = useState(draft.masterComment ?? order.master_comment ?? "");
+  const [publicComment, setPublicComment] = useState(draft.publicComment ?? order.public_comment ?? "");
+  const [masterId, setMasterId] = useState(draft.masterId ?? order.master_id ?? "");
+  const [dueDate, setDueDate] = useState(draft.dueDate ?? order.due_date ?? "");
+
+  useDraftSave(draftKey, { diagnostic, masterComment, publicComment, masterId, dueDate });
 
   const save = useMutation({
     mutationKey: ["update-order"],
     mutationFn: (v: { orderId: string; patch: Partial<Order> }) => updateOrder(v.orderId, v.patch),
-    onSuccess: onSaved,
+    onSuccess: () => { clearDraft(draftKey); onSaved(); },
   });
   const submitPatch = () => save.mutate({
     orderId: order.id,
