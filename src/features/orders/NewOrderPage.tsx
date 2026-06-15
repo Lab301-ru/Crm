@@ -1,4 +1,4 @@
-import { useMemo, useState, type FormEvent } from "react";
+import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createOrder } from "@/shared/api/orders";
@@ -11,6 +11,30 @@ import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, Card, ErrorText, Field, Input, Select, Textarea } from "@/shared/ui";
 import { CustomFieldInput } from "./CustomFieldInput";
 
+// Черновик формы приёмки. Хранится в localStorage, чтобы введённое не
+// терялось, когда мобильный браузер выгружает свёрнутую вкладку или при
+// переходе между страницами SPA.
+const DRAFT_KEY = "draft:new-order";
+interface Draft {
+  clientQuery: string;
+  client: Client | null;
+  clientName: string;
+  categoryId: string;
+  brandQuery: string;
+  brandId: string;
+  modelQuery: string;
+  modelId: string;
+  serial: string;
+  completeness: string;
+  appearance: string;
+  warrantyCase: boolean;
+  customFields: Record<string, unknown>;
+  defect: string;
+  dueDate: string;
+  masterId: string;
+  prepayment: string;
+}
+
 /**
  * Приёмка устройства < 60 секунд (Workpan-флоу):
  * телефон → клиент найден/создан → категория → бренд/модель из
@@ -21,10 +45,16 @@ export function NewOrderPage() {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
 
+  // Восстанавливаем черновик один раз на входе.
+  const draft = useMemo<Partial<Draft>>(() => {
+    try { return JSON.parse(localStorage.getItem(DRAFT_KEY) || "{}") as Partial<Draft>; }
+    catch { return {}; }
+  }, []);
+
   // — клиент —
-  const [clientQuery, setClientQuery] = useState("+7 ");
-  const [client, setClient] = useState<Client | null>(null);
-  const [clientName, setClientName] = useState("");
+  const [clientQuery, setClientQuery] = useState(draft.clientQuery ?? "+7 ");
+  const [client, setClient] = useState<Client | null>(draft.client ?? null);
+  const [clientName, setClientName] = useState(draft.clientName ?? "");
   const debouncedClient = useDebounced(clientQuery, 300);
   const foundClients = useQuery({
     queryKey: ["client-search", debouncedClient],
@@ -33,22 +63,32 @@ export function NewOrderPage() {
   });
 
   // — устройство —
-  const [categoryId, setCategoryId] = useState("");
-  const [brandQuery, setBrandQuery] = useState("");
-  const [brandId, setBrandId] = useState("");
-  const [modelQuery, setModelQuery] = useState("");
-  const [modelId, setModelId] = useState("");
-  const [serial, setSerial] = useState("");
-  const [completeness, setCompleteness] = useState("");
-  const [appearance, setAppearance] = useState("");
-  const [warrantyCase, setWarrantyCase] = useState(false);
-  const [customFields, setCustomFields] = useState<Record<string, unknown>>({});
+  const [categoryId, setCategoryId] = useState(draft.categoryId ?? "");
+  const [brandQuery, setBrandQuery] = useState(draft.brandQuery ?? "");
+  const [brandId, setBrandId] = useState(draft.brandId ?? "");
+  const [modelQuery, setModelQuery] = useState(draft.modelQuery ?? "");
+  const [modelId, setModelId] = useState(draft.modelId ?? "");
+  const [serial, setSerial] = useState(draft.serial ?? "");
+  const [completeness, setCompleteness] = useState(draft.completeness ?? "");
+  const [appearance, setAppearance] = useState(draft.appearance ?? "");
+  const [warrantyCase, setWarrantyCase] = useState(draft.warrantyCase ?? false);
+  const [customFields, setCustomFields] = useState<Record<string, unknown>>(draft.customFields ?? {});
 
   // — заказ —
-  const [defect, setDefect] = useState("");
-  const [dueDate, setDueDate] = useState("");
-  const [masterId, setMasterId] = useState("");
-  const [prepayment, setPrepayment] = useState("");
+  const [defect, setDefect] = useState(draft.defect ?? "");
+  const [dueDate, setDueDate] = useState(draft.dueDate ?? "");
+  const [masterId, setMasterId] = useState(draft.masterId ?? "");
+  const [prepayment, setPrepayment] = useState(draft.prepayment ?? "");
+
+  // Автосохранение черновика при любом изменении полей.
+  const draftJson = JSON.stringify({
+    clientQuery, client, clientName, categoryId, brandQuery, brandId, modelQuery,
+    modelId, serial, completeness, appearance, warrantyCase, customFields,
+    defect, dueDate, masterId, prepayment,
+  });
+  useEffect(() => {
+    localStorage.setItem(DRAFT_KEY, draftJson);
+  }, [draftJson]);
 
   const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 300_000 });
   const profiles = useQuery({ queryKey: ["profiles"], queryFn: fetchProfiles, staleTime: 300_000 });
@@ -124,6 +164,7 @@ export function NewOrderPage() {
       });
     },
     onSuccess: (res) => {
+      localStorage.removeItem(DRAFT_KEY);  // заказ создан — черновик больше не нужен
       void queryClient.invalidateQueries({ queryKey: ["orders"] });
       void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
       navigate(`/orders/${res.id}`);
@@ -143,9 +184,21 @@ export function NewOrderPage() {
 
   const masters = profiles.data?.filter((p) => p.is_active && p.role !== "manager") ?? [];
 
+  // Полный сброс формы и черновика — начать новую заявку с чистого листа.
+  const resetForm = () => {
+    localStorage.removeItem(DRAFT_KEY);
+    setClientQuery("+7 "); setClient(null); setClientName("");
+    setCategoryId(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
+    setSerial(""); setCompleteness(""); setAppearance(""); setWarrantyCase(false); setCustomFields({});
+    setDefect(""); setDueDate(""); setMasterId(""); setPrepayment("");
+  };
+
   return (
     <form onSubmit={onSubmit} className="mx-auto max-w-2xl space-y-4 p-4">
-      <h1 className="text-lg font-bold">Новый заказ</h1>
+      <div className="flex items-center justify-between">
+        <h1 className="text-lg font-bold">Новый заказ</h1>
+        <Button type="button" variant="ghost" onClick={resetForm}>Очистить</Button>
+      </div>
 
       {/* ШАГ 1: клиент по телефону */}
       <Card title="Клиент">
