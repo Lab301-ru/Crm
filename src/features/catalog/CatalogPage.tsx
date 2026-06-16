@@ -54,14 +54,12 @@ export function CatalogPage() {
               ))}
             </ul>
           )}
-          {isAdmin && (
-            <div className="mt-3 flex gap-2 border-t border-border pt-3">
-              <Input placeholder="Новая категория" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
-              <Button variant="secondary" disabled={!newCategory.trim() || addCat.isPending} onClick={() => addCat.mutate()}>
-                Добавить
-              </Button>
-            </div>
-          )}
+          <div className="mt-3 flex gap-2 border-t border-border pt-3">
+            <Input placeholder="Новая категория" value={newCategory} onChange={(e) => setNewCategory(e.target.value)} />
+            <Button variant="secondary" disabled={!newCategory.trim() || addCat.isPending} onClick={() => addCat.mutate()}>
+              Добавить
+            </Button>
+          </div>
           <ErrorText error={addCat.error} />
         </Card>
 
