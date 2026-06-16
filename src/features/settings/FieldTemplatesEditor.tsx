@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { fetchCategories, fetchFieldTemplates } from "@/shared/api/catalog";
+import { addCategory, fetchCategories, fetchFieldTemplates } from "@/shared/api/catalog";
 import { createFieldTemplate, updateFieldTemplate } from "@/shared/api/settings";
 import type { FieldType } from "@/shared/api/types";
+import { useAuth } from "@/app/AuthProvider";
 import { Button, Card, EmptyState, ErrorText, Field, Input, Select, Spinner } from "@/shared/ui";
 
 const typeLabels: Record<FieldType, string> = {
@@ -17,8 +18,21 @@ const typeLabels: Record<FieldType, string> = {
 /** Конструктор доп-полей категории: новое поле = строка в БД, без миграций. */
 export function FieldTemplatesEditor() {
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const isAdmin = profile?.role === "admin";
   const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories });
   const [categoryId, setCategoryId] = useState("");
+
+  // Добавление новой категории прямо здесь (создание категорий — только админ).
+  const [newCategory, setNewCategory] = useState("");
+  const addCat = useMutation({
+    mutationFn: () => addCategory(newCategory.trim()),
+    onSuccess: (res) => {
+      setNewCategory("");
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+      setCategoryId(res.id); // сразу выбираем созданную категорию
+    },
+  });
 
   const templates = useQuery({
     queryKey: ["field-templates", categoryId],
@@ -67,6 +81,29 @@ export function FieldTemplatesEditor() {
             {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </Select>
         </Field>
+
+        {/* Создать категорию на месте — только администратору */}
+        {isAdmin && (
+          <div className="flex items-end gap-2">
+            <div className="flex-1">
+              <Field label="Новая категория">
+                <Input
+                  value={newCategory}
+                  onChange={(e) => setNewCategory(e.target.value)}
+                  placeholder="Например: Пылесос"
+                />
+              </Field>
+            </div>
+            <Button
+              variant="secondary"
+              disabled={!newCategory.trim() || addCat.isPending}
+              onClick={() => addCat.mutate()}
+            >
+              Добавить
+            </Button>
+          </div>
+        )}
+        <ErrorText error={addCat.error} />
 
         {categoryId && (
           <>

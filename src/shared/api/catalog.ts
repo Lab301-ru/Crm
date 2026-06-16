@@ -8,9 +8,10 @@ export async function fetchCategories(): Promise<Category[]> {
   return (data ?? []) as Category[];
 }
 
-export async function addCategory(name: string): Promise<void> {
-  const { error } = await supabase.from("categories").insert({ name });
+export async function addCategory(name: string): Promise<{ id: string }> {
+  const { data, error } = await supabase.from("categories").insert({ name }).select("id").single();
   throwIfError(error);
+  return data as { id: string };
 }
 
 export async function searchBrands(q: string): Promise<Brand[]> {
