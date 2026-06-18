@@ -1,12 +1,31 @@
-import { useQuery } from "@tanstack/react-query";
+import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { Link } from "react-router-dom";
-import { fetchDashboardStats, fetchFinanceStats, fetchPhoneTasks, markPhoneCallDone, type FinancePeriods } from "@/shared/api/settings";
+import {
+  fetchDashboardAnalytics, fetchDashboardStats, fetchFinanceStats,
+  fetchPhoneTasks, markPhoneCallDone, type FinancePeriods,
+} from "@/shared/api/settings";
 import { fetchOrderList } from "@/shared/api/orders";
 import { formatMoney, formatPhone } from "@/shared/lib/format";
 import { renderNotification } from "@/shared/lib/notifications";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
-import { useMutation, useQueryClient } from "@tanstack/react-query";
 import { OrdersTable } from "@/features/orders/OrdersTable";
+import { RevenueBars, StatusDonut } from "./Charts";
+
+/** Ссылки на список заказов, выданных за период (по issued_at). */
+function issuedLinks() {
+  const now = new Date();
+  const pad = (n: number) => String(n).padStart(2, "0");
+  const ymd = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  const today = ymd(now);
+  const month = ymd(new Date(now.getFullYear(), now.getMonth(), 1));
+  const year = ymd(new Date(now.getFullYear(), 0, 1));
+  return {
+    today: `/orders?issued_from=${today}&issued_to=${today}`,
+    month: `/orders?issued_from=${month}&issued_to=${today}`,
+    year: `/orders?issued_from=${year}&issued_to=${today}`,
+    all: "/orders?status=issued",
+  };
+}
 
 function Widget({ label, value, to, accent }: { label: string; value: string | number; to?: string; accent?: string }) {
   const body = (
@@ -18,21 +37,21 @@ function Widget({ label, value, to, accent }: { label: string; value: string | n
   return to ? <Link to={to}>{body}</Link> : body;
 }
 
-function FinanceCard({ title, data, accent }: { title: string; data: FinancePeriods; accent: string }) {
-  const cells: { label: string; value: number }[] = [
-    { label: "Сегодня", value: data.today },
-    { label: "Месяц", value: data.month },
-    { label: "Год", value: data.year },
-    { label: "Всё время", value: data.all },
+function FinanceCard({ title, data, accent, links }: { title: string; data: FinancePeriods; accent: string; links: string[] }) {
+  const cells = [
+    { label: "Сегодня", value: data.today, to: links[0] },
+    { label: "Месяц", value: data.month, to: links[1] },
+    { label: "Год", value: data.year, to: links[2] },
+    { label: "Всё время", value: data.all, to: links[3] },
   ];
   return (
     <Card title={title}>
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
         {cells.map((c) => (
-          <div key={c.label}>
+          <Link key={c.label} to={c.to} className="-m-1 rounded-lg p-1 transition-colors hover:bg-surface-2">
             <p className="text-lg font-bold" style={{ color: accent }}>{formatMoney(c.value)}</p>
             <p className="mt-0.5 text-xs text-muted">{c.label}</p>
-          </div>
+          </Link>
         ))}
       </div>
     </Card>
@@ -43,6 +62,7 @@ export function DashboardPage() {
   const queryClient = useQueryClient();
   const stats = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboardStats, refetchInterval: 60_000 });
   const finance = useQuery({ queryKey: ["finance"], queryFn: fetchFinanceStats, refetchInterval: 60_000 });
+  const analytics = useQuery({ queryKey: ["analytics"], queryFn: fetchDashboardAnalytics, refetchInterval: 60_000 });
   const recent = useQuery({
     queryKey: ["orders", "recent"],
     queryFn: () => fetchOrderList({}, 0, 10),
@@ -58,6 +78,8 @@ export function DashboardPage() {
   });
 
   const s = stats.data;
+  const links = issuedLinks();
+  const financeLinks = [links.today, links.month, links.year, links.all];
 
   return (
     <div className="space-y-4 p-4">
@@ -71,15 +93,24 @@ export function DashboardPage() {
           <Widget label="В ремонте" value={s?.in_repair ?? 0} to="/orders?status=in_repair" accent="#06B6D4" />
           <Widget label="Ожидают запчасти" value={s?.awaiting_parts ?? 0} to="/orders?status=awaiting_parts" accent="#F97316" />
           <Widget label="Готовы к выдаче" value={s?.ready ?? 0} to="/orders?status=ready" accent="#22C55E" />
-          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} />
+          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} to={links.today} accent="#14B8A6" />
+          <Widget label="Выдано за всё время" value={s?.issued_total ?? 0} to={links.all} accent="#14B8A6" />
         </div>
       )}
 
-      {/* Финансы: выручка и чистая прибыль за периоды (по дате выдачи) */}
+      {/* Финансы: выручка и чистая прибыль за периоды (клик — список выданных за период) */}
       {finance.data && (
         <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <FinanceCard title="Выручка" data={finance.data.revenue} accent="#22C55E" />
-          <FinanceCard title="Чистая прибыль" data={finance.data.profit} accent="#3B82F6" />
+          <FinanceCard title="Выручка" data={finance.data.revenue} accent="#22C55E" links={financeLinks} />
+          <FinanceCard title="Чистая прибыль" data={finance.data.profit} accent="#3B82F6" links={financeLinks} />
+        </div>
+      )}
+
+      {/* Графики: распределение по статусам и тренд выручки/прибыли */}
+      {analytics.data && (
+        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+          <StatusDonut slices={analytics.data.by_status} />
+          <RevenueBars days={analytics.data.revenue_by_day} />
         </div>
       )}
 

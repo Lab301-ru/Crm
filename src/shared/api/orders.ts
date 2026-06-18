@@ -12,6 +12,8 @@ export interface OrderFilters {
   client_id?: string;
   date_from?: string;
   date_to?: string;
+  issued_from?: string;
+  issued_to?: string;
 }
 
 export async function fetchOrderList(
@@ -33,6 +35,8 @@ export async function fetchOrderList(
   if (filters.client_id) q = q.eq("client_id", filters.client_id);
   if (filters.date_from) q = q.gte("accepted_at", filters.date_from);
   if (filters.date_to) q = q.lte("accepted_at", `${filters.date_to}T23:59:59`);
+  if (filters.issued_from) q = q.gte("issued_at", filters.issued_from);
+  if (filters.issued_to) q = q.lte("issued_at", `${filters.issued_to}T23:59:59`);
 
   const { data, error, count } = await q;
   throwIfError(error);

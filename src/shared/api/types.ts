@@ -190,6 +190,7 @@ export interface DashboardStats {
   awaiting_parts: number;
   ready: number;
   issued_today: number;
+  issued_total: number;
   revenue_today: number | null;
   revenue_total: number | null;
 }

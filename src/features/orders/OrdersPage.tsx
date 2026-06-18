@@ -24,6 +24,18 @@ export function OrdersPage() {
     date_from: params.get("from") ?? undefined,
     date_to: params.get("to") ?? undefined,
     client_id: params.get("client") ?? undefined,
+    issued_from: params.get("issued_from") ?? undefined,
+    issued_to: params.get("issued_to") ?? undefined,
+  };
+
+  const issuedActive = filters.issued_from || filters.issued_to;
+  const clearIssued = () => {
+    setPage(0);
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("issued_from"); next.delete("issued_to");
+      return next;
+    });
   };
 
   const setFilter = (key: string, value: string) => {
@@ -61,6 +73,18 @@ export function OrdersPage() {
           <Button>+ Новый заказ</Button>
         </Link>
       </div>
+
+      {issuedActive && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+          <span>
+            Выданы за период
+            {filters.issued_from && filters.issued_to && filters.issued_from === filters.issued_to
+              ? `: ${filters.issued_from}`
+              : `: ${filters.issued_from ?? "…"} — ${filters.issued_to ?? "…"}`}
+          </span>
+          <button onClick={clearIssued} className="ml-auto text-muted hover:text-text" aria-label="Сбросить">✕</button>
+        </div>
+      )}
 
       {/* Поиск: номер, телефон, имя, серийник, IMEI, бренд, модель */}
       <div className="relative">
