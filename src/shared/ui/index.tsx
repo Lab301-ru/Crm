@@ -62,8 +62,8 @@ export function Field({ label, required, children }: { label: string; required?:
 export function StatusBadge({ label, color }: { label: string; color: string }) {
   return (
     <span
-      className="inline-flex items-center rounded-md border px-2 py-0.5 text-xs font-medium whitespace-nowrap"
-      style={{ color, backgroundColor: `${color}1f`, borderColor: `${color}55` }}
+      className="inline-flex items-center rounded-md border px-2.5 py-0.5 text-xs font-semibold whitespace-nowrap"
+      style={{ color, backgroundColor: `${color}33`, borderColor: `${color}99` }}
     >
       {label}
     </span>

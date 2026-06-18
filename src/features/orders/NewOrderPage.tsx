@@ -3,7 +3,7 @@ import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createOrder } from "@/shared/api/orders";
 import { searchClients } from "@/shared/api/clients";
-import { fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
+import { addCategory, fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, FieldTemplate } from "@/shared/api/types";
 import { formatPhone, phoneInput } from "@/shared/lib/format";
@@ -20,6 +20,7 @@ interface Draft {
   client: Client | null;
   clientName: string;
   categoryId: string;
+  categoryQuery: string;
   brandQuery: string;
   brandId: string;
   modelQuery: string;
@@ -64,6 +65,7 @@ export function NewOrderPage() {
 
   // — устройство —
   const [categoryId, setCategoryId] = useState(draft.categoryId ?? "");
+  const [categoryQuery, setCategoryQuery] = useState(draft.categoryQuery ?? "");
   const [brandQuery, setBrandQuery] = useState(draft.brandQuery ?? "");
   const [brandId, setBrandId] = useState(draft.brandId ?? "");
   const [modelQuery, setModelQuery] = useState(draft.modelQuery ?? "");
@@ -82,7 +84,7 @@ export function NewOrderPage() {
 
   // Автосохранение черновика при любом изменении полей.
   const draftJson = JSON.stringify({
-    clientQuery, client, clientName, categoryId, brandQuery, brandId, modelQuery,
+    clientQuery, client, clientName, categoryId, categoryQuery, brandQuery, brandId, modelQuery,
     modelId, serial, completeness, appearance, warrantyCase, customFields,
     defect, dueDate, masterId, prepayment,
   });
@@ -92,6 +94,23 @@ export function NewOrderPage() {
 
   const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 300_000 });
   const profiles = useQuery({ queryKey: ["profiles"], queryFn: fetchProfiles, staleTime: 300_000 });
+
+  // Категория как поиск: фильтруем имеющиеся и предлагаем создать новую.
+  const catQ = categoryQuery.trim().toLowerCase();
+  const matchedCategories = useMemo(() => {
+    const all = categories.data ?? [];
+    return (catQ ? all.filter((c) => c.name.toLowerCase().includes(catQ)) : all).slice(0, 8);
+  }, [categories.data, catQ]);
+  const exactCategory = (categories.data ?? []).find((c) => c.name.trim().toLowerCase() === catQ);
+  const addCat = useMutation({
+    mutationFn: (name: string) => addCategory(name.trim()),
+    onSuccess: (res, name) => {
+      setCategoryId(res.id);
+      setCategoryQuery(name.trim());
+      setCustomFields({}); setModelId(""); setModelQuery("");
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
   const templates = useQuery({
     queryKey: ["field-templates", categoryId],
     queryFn: () => fetchFieldTemplates(categoryId),
@@ -127,13 +146,21 @@ export function NewOrderPage() {
 
   const submit = useMutation({
     mutationFn: async () => {
+      // Категория: выбрана из справочника либо введена вручную — создаём на лету.
+      let resolvedCategoryId = categoryId;
+      if (!resolvedCategoryId && categoryQuery.trim()) {
+        const existing = (categories.data ?? []).find(
+          (c) => c.name.trim().toLowerCase() === categoryQuery.trim().toLowerCase(),
+        );
+        resolvedCategoryId = existing ? existing.id : (await addCategory(categoryQuery.trim())).id;
+      }
       // Бренд (и модель) могут быть введены вручную и отсутствовать в
       // справочнике — создаём их на лету, чтобы приёмка не вставала.
       let resolvedBrandId = brandId;
       let resolvedModelId: string | undefined = modelId || undefined;
       if (!resolvedBrandId) {
         if (modelQuery.trim()) {
-          const r = await quickAddModel(categoryId, brandQuery.trim(), modelQuery.trim());
+          const r = await quickAddModel(resolvedCategoryId, brandQuery.trim(), modelQuery.trim());
           resolvedBrandId = r.brand_id;
           resolvedModelId = r.model_id;
         } else {
@@ -146,7 +173,7 @@ export function NewOrderPage() {
           ? { id: client.id }
           : { name: clientName.trim(), phone: clientQuery.trim() },
         device: {
-          category_id: categoryId,
+          category_id: resolvedCategoryId,
           brand_id: resolvedBrandId,
           model_id: resolvedModelId,
           serial_number: serial.trim() || undefined,
@@ -175,7 +202,7 @@ export function NewOrderPage() {
   // (brandQuery) — во втором случае он создастся при отправке.
   const canSubmit =
     (client || (clientName.trim() && clientQuery.replace(/\D/g, "").length >= 10)) &&
-    categoryId && (brandId || brandQuery.trim()) && defect.trim();
+    (categoryId || categoryQuery.trim()) && (brandId || brandQuery.trim()) && defect.trim();
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
@@ -188,7 +215,7 @@ export function NewOrderPage() {
   const resetForm = () => {
     localStorage.removeItem(DRAFT_KEY);
     setClientQuery("+7 "); setClient(null); setClientName("");
-    setCategoryId(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
+    setCategoryId(""); setCategoryQuery(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
     setSerial(""); setCompleteness(""); setAppearance(""); setWarrantyCase(false); setCustomFields({});
     setDefect(""); setDueDate(""); setMasterId(""); setPrepayment("");
   };
@@ -247,11 +274,39 @@ export function NewOrderPage() {
       {/* ШАГ 2: устройство */}
       <Card title="Устройство">
         <div className="space-y-3">
-          <Field label="Категория" required>
-            <Select value={categoryId} onChange={(e) => { setCategoryId(e.target.value); setCustomFields({}); setModelId(""); setModelQuery(""); }}>
-              <option value="">Выберите категорию…</option>
-              {categories.data?.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
-            </Select>
+          <Field label="Категория (тип устройства)" required>
+            <div className="relative">
+              <Input
+                value={categoryQuery}
+                onChange={(e) => { setCategoryQuery(e.target.value); setCategoryId(""); setCustomFields({}); setModelId(""); setModelQuery(""); }}
+                placeholder="Смартфон, Телевизор, Кофемашина…"
+              />
+              {!categoryId && categoryQuery.trim() && matchedCategories.length > 0 && (
+                <div className="absolute z-30 mt-1 w-full overflow-hidden rounded-lg border border-border bg-surface shadow-xl">
+                  {matchedCategories.map((c) => (
+                    <button
+                      type="button"
+                      key={c.id}
+                      onClick={() => { setCategoryId(c.id); setCategoryQuery(c.name); }}
+                      className="block w-full px-3 py-2 text-left text-sm hover:bg-surface-2"
+                    >
+                      {c.name}
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {!categoryId && categoryQuery.trim() && !exactCategory && (
+              <Button
+                type="button"
+                variant="secondary"
+                className="mt-2 w-full"
+                disabled={addCat.isPending}
+                onClick={() => addCat.mutate(categoryQuery)}
+              >
+                + Создать категорию «{categoryQuery.trim()}» в справочнике
+              </Button>
+            )}
           </Field>
 
           <div className="grid grid-cols-2 gap-3">
