@@ -1,20 +1,28 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
+import { useInfiniteQuery, useMutation, useQueryClient } from "@tanstack/react-query";
 import { searchClients, updateClient } from "@/shared/api/clients";
 import type { Client } from "@/shared/api/types";
 import { formatPhone, isValidEmail, phoneInput } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, EmptyState, ErrorText, Field, Input, Modal, Spinner, Textarea } from "@/shared/ui";
+
+const PAGE_SIZE = 50;
+
 export function ClientsPage() {
   const [query, setQuery] = useState("");
   const debounced = useDebounced(query, 300);
   const [editing, setEditing] = useState<Client | null>(null);
 
-  const clients = useQuery({
+  const clients = useInfiniteQuery({
     queryKey: ["clients", debounced],
-    queryFn: () => searchClients(debounced, 50),
+    queryFn: ({ pageParam }) => searchClients(debounced, PAGE_SIZE, pageParam),
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) =>
+      lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
   });
+
+  const items = clients.data?.pages.flat() ?? [];
 
   return (
     <div className="space-y-4 p-4">
@@ -27,9 +35,10 @@ export function ClientsPage() {
 
       {clients.isLoading ? (
         <Spinner />
-      ) : clients.data && clients.data.length > 0 ? (
+      ) : items.length > 0 ? (
+        <>
         <ul className="divide-y divide-border rounded-xl border border-border bg-surface">
-          {clients.data.map((c) => (
+          {items.map((c) => (
             <li key={c.id} className="flex items-center justify-between gap-3 px-4 py-3">
               <div className="min-w-0">
                 <p className="truncate text-sm font-medium">{c.name}</p>
@@ -57,6 +66,21 @@ export function ClientsPage() {
             </li>
           ))}
         </ul>
+        <div className="flex items-center justify-between gap-3 pt-1">
+          <span className="text-xs text-muted">
+            Показано: {items.length}
+          </span>
+          {clients.hasNextPage && (
+            <Button
+              className="px-4"
+              disabled={clients.isFetchingNextPage}
+              onClick={() => void clients.fetchNextPage()}
+            >
+              {clients.isFetchingNextPage ? "Загрузка…" : "Показать ещё"}
+            </Button>
+          )}
+        </div>
+        </>
       ) : (
         <EmptyState text="Клиенты не найдены" />
       )}
