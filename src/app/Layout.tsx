@@ -2,6 +2,7 @@ import { NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { OfflineBanner } from "./OfflineBanner";
 import { ErrorBoundary } from "./ErrorBoundary";
+import { useTheme } from "@/shared/lib/theme";
 
 const navItems = [
   { to: "/", label: "Дашборд", icon: "M3 13h8V3H3v10zm10 8h8V11h-8v10zM3 21h8v-6H3v6zm10-18v6h8V3h-8z" },
@@ -56,12 +57,15 @@ export function Layout() {
           <p className="px-2 pb-2 text-xs text-muted">
             {profile?.role === "admin" ? "Администратор" : profile?.role === "manager" ? "Менеджер" : "Мастер"}
           </p>
-          <button
-            onClick={() => void signOut()}
-            className="w-full rounded-lg px-2 py-1.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-text"
-          >
-            Выйти
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => void signOut()}
+              className="flex-1 rounded-lg px-2 py-1.5 text-left text-sm text-muted hover:bg-surface-2 hover:text-text"
+            >
+              Выйти
+            </button>
+            <ThemeToggle />
+          </div>
         </div>
       </aside>
 
@@ -77,6 +81,7 @@ export function Layout() {
           <span className="text-base font-bold tracking-tight">
             ultra<span className="text-primary">CRM</span>
           </span>
+          <ThemeToggle className="ml-auto" />
         </header>
         <OfflineBanner />
         <ErrorBoundary>
@@ -107,6 +112,34 @@ export function Layout() {
         ))}
       </nav>
     </div>
+  );
+}
+
+/** Переключатель тёмной/светлой темы (солнце ↔ луна). */
+function ThemeToggle({ className = "" }: { className?: string }) {
+  const { theme, toggle } = useTheme();
+  const isLight = theme === "light";
+  return (
+    <button
+      type="button"
+      onClick={toggle}
+      aria-label={isLight ? "Включить тёмную тему" : "Включить светлую тему"}
+      title={isLight ? "Тёмная тема" : "Светлая тема"}
+      className={`inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text ${className}`}
+    >
+      {isLight ? (
+        // луна — переключиться на тёмную
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+        </svg>
+      ) : (
+        // солнце — переключиться на светлую
+        <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+          <circle cx="12" cy="12" r="4" />
+          <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+        </svg>
+      )}
+    </button>
   );
 }
 

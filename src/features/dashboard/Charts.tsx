@@ -143,10 +143,11 @@ export function MonthlyRevenueChart() {
           </svg>
           <div className="mt-3 flex flex-wrap gap-4 text-sm">
             <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-sm bg-success" /> Выручка: <b>{formatMoney(q.data?.revenue_total ?? 0)}</b>
+              {/* цвета кружков = цвета столбиков, не зависят от темы */}
+              <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: "#22C55E" }} /> Выручка: <b>{formatMoney(q.data?.revenue_total ?? 0)}</b>
             </span>
             <span className="flex items-center gap-2">
-              <span className="h-3 w-3 rounded-sm bg-primary" /> Прибыль: <b>{formatMoney(q.data?.profit_total ?? 0)}</b>
+              <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: "#3B82F6" }} /> Прибыль: <b>{formatMoney(q.data?.profit_total ?? 0)}</b>
             </span>
           </div>
         </>

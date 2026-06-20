@@ -1,0 +1,24 @@
+/*
+ * Светлая тема: светлый фон + оранжевые акценты и кнопки.
+ *
+ * Обычный CSS, НЕ обрабатывается компилятором Tailwind (нет директив
+ * @import "tailwindcss" / @theme), поэтому переопределение theme-токенов
+ * не вырезается. Переопределяем те же --color-*, что задаёт @theme в
+ * index.css; все утилиты (bg-surface, text-text, bg-primary, …) ссылаются
+ * на эти переменные через var(), поэтому перекрашивается всё приложение
+ * без правок компонентов. Селектор с :root[data-theme] перебивает :root.
+ */
+:root[data-theme="light"] {
+  --color-bg: #f4f6fa;
+  --color-surface: #ffffff;
+  --color-surface-2: #eef1f6;
+  --color-border: #dde3ec;
+  --color-text: #1b2433;
+  --color-muted: #64748b;
+  --color-primary: #f97316;
+  --color-primary-hover: #ea580c;
+  --color-danger: #dc2626;
+  --color-success: #16a34a;
+  --color-warning: #d97706;
+  color-scheme: light;
+}
