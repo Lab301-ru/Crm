@@ -50,8 +50,12 @@ jobs:
       - name: Привязка к проекту
         if: steps.check.outputs.configured == 'true'
         run: supabase link --project-ref "${PROJECT_REF}"
+      # Неблокирующий: миграции применяются и напрямую (через MCP/SQL Editor),
+      # поэтому сбой подключения к БД здесь не должен валить весь деплой.
+      # Шаг остаётся для авто-применения миграций, когда доступ к БД настроен.
       - name: Миграции
         if: steps.check.outputs.configured == 'true'
+        continue-on-error: true
         run: supabase db push
       # Деплой функций не зависит от миграций: проблема с подключением к БД
       # (например, неверный пароль) не должна блокировать выкладку Edge Functions.
