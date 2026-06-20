@@ -161,7 +161,7 @@ export function NewOrderPage() {
   });
 
   const submit = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (initialStatus: "accepted" | "new") => {
       // Категория: выбрана из справочника либо введена вручную — создаём на лету.
       let resolvedCategoryId = categoryId;
       if (!resolvedCategoryId && categoryQuery.trim()) {
@@ -212,6 +212,7 @@ export function NewOrderPage() {
           custom_fields: customFields,
         },
         order: {
+          initial_status: initialStatus,
           claimed_defect: defect.trim(),
           due_date: dueDate || undefined,
           master_id: masterId || undefined,
@@ -235,7 +236,7 @@ export function NewOrderPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (canSubmit) submit.mutate();
+    if (canSubmit) submit.mutate("accepted");
   };
 
   const masters = profiles.data?.filter((p) => p.is_active && p.role !== "manager") ?? [];
@@ -243,7 +244,7 @@ export function NewOrderPage() {
   // Полный сброс формы и черновика — начать новую заявку с чистого листа.
   const resetForm = () => {
     localStorage.removeItem(DRAFT_KEY);
-    setClientQuery("+7 "); setClient(null); setClientName("");
+    setClientQuery("+7 "); setClient(null); setClientName(""); setClientEmail(""); setClientTelegram("");
     setCategoryId(""); setCategoryQuery(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
     setSerial(""); setCompleteness(""); setAppearance(""); setWarrantyCase(false); setCustomFields({});
     setDefect(""); setDueDate(""); setMasterId(""); setPrepayment("");
@@ -482,9 +483,21 @@ export function NewOrderPage() {
       </Card>
 
       <ErrorText error={submit.error} />
-      <Button type="submit" className="w-full py-3 text-base" disabled={!canSubmit || submit.isPending}>
-        {submit.isPending ? "Создаём…" : "Принять в ремонт"}
-      </Button>
+      <div className="space-y-2">
+        <Button type="submit" className="w-full py-3 text-base" disabled={!canSubmit || submit.isPending}>
+          {submit.isPending && submit.variables === "accepted" ? "Создаём…" : "Принять в ремонт"}
+        </Button>
+        {/* Предзапись: клиент записался, но ещё не пришёл — заказ со статусом «Не принят» */}
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full py-3 text-base"
+          disabled={!canSubmit || submit.isPending}
+          onClick={() => { if (canSubmit) submit.mutate("new"); }}
+        >
+          {submit.isPending && submit.variables === "new" ? "Создаём…" : "Предзапись (клиент ещё не пришёл)"}
+        </Button>
+      </div>
     </form>
   );
 }
