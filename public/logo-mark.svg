@@ -1,6 +1,0 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 120 120" fill="none" role="img" aria-label="ultraCRM">
-  <line x1="34" y1="96" x2="62" y2="30" stroke="#F5564E" stroke-width="20" stroke-linecap="round"/>
-  <line x1="72" y1="96" x2="100" y2="30" stroke="#FBB14D" stroke-width="20" stroke-linecap="round"/>
-  <polygon points="52,82 82,82 67,50" fill="#5B6EF5"/>
-  <circle cx="67" cy="88" r="10" fill="#57C84F"/>
-</svg>

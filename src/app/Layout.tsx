@@ -31,9 +31,8 @@ export function Layout() {
     <div className="min-h-dvh md:flex">
       {/* Sidebar — планшет и ПК */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:fixed md:inset-y-0 border-r border-border bg-surface">
-        <Link to="/" className="flex items-center gap-2 px-4 py-5" aria-label="На дашборд">
-          <img src="/logo-mark.svg" alt="" className="h-7 w-7 shrink-0" />
-          <span className="text-lg font-bold tracking-tight">ultra<span className="text-primary">CRM</span></span>
+        <Link to="/" className="block px-4 py-5" aria-label="На дашборд">
+          <LogoImg className="h-8 w-auto" />
         </Link>
         <nav className="flex-1 space-y-1 px-2">
           {visibleNav.map((item) => (
@@ -77,11 +76,8 @@ export function Layout() {
           className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
         >
-          <Link to="/" className="flex items-center gap-2" aria-label="На дашборд">
-            <img src="/logo-mark.svg" alt="" className="h-6 w-6 shrink-0" />
-            <span className="text-base font-bold tracking-tight">
-              ultra<span className="text-primary">CRM</span>
-            </span>
+          <Link to="/" className="block" aria-label="На дашборд">
+            <LogoImg className="h-7 w-auto" />
           </Link>
           <ThemeToggle className="ml-auto" />
         </header>
@@ -114,6 +110,18 @@ export function Layout() {
         ))}
       </nav>
     </div>
+  );
+}
+
+/** Логотип ultraCRM — отдельная версия под тему (на светлой надпись тёмная). */
+function LogoImg({ className = "" }: { className?: string }) {
+  const { theme } = useTheme();
+  return (
+    <img
+      src={theme === "light" ? "/logo-full-light.png" : "/logo-full.png"}
+      alt="ultraCRM"
+      className={className}
+    />
   );
 }
 
