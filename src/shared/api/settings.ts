@@ -46,6 +46,20 @@ export async function fetchDashboardAnalytics(): Promise<DashboardAnalytics> {
   return data as DashboardAnalytics;
 }
 
+export interface MonthRevenue {
+  month: string;            // 'YYYY-MM'
+  revenue_total: number;
+  profit_total: number;
+  days: DayPoint[];
+}
+
+/** Выручка/прибыль по дням за выбранный месяц. month — 'YYYY-MM'. */
+export async function fetchRevenueByMonth(month: string): Promise<MonthRevenue> {
+  const { data, error } = await supabase.rpc("dashboard_revenue_by_month", { p_month: `${month}-01` });
+  throwIfError(error);
+  return data as MonthRevenue;
+}
+
 export async function fetchProfiles(): Promise<Profile[]> {
   const { data, error } = await supabase.from("profiles").select("*").order("full_name");
   throwIfError(error);

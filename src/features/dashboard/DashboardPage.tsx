@@ -9,7 +9,7 @@ import { formatMoney, formatPhone } from "@/shared/lib/format";
 import { renderNotification } from "@/shared/lib/notifications";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
 import { OrdersTable } from "@/features/orders/OrdersTable";
-import { RevenueBars, StatusDonut } from "./Charts";
+import { MonthlyRevenueChart, StatusDonut } from "./Charts";
 
 /** Ссылки на список заказов, выданных за период (по issued_at). */
 function issuedLinks() {
@@ -106,13 +106,11 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Графики: распределение по статусам и тренд выручки/прибыли */}
-      {analytics.data && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <StatusDonut slices={analytics.data.by_status} />
-          <RevenueBars days={analytics.data.revenue_by_day} />
-        </div>
-      )}
+      {/* Графики: кликабельное распределение по статусам и помесячная выручка */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {analytics.data ? <StatusDonut slices={analytics.data.by_status} /> : <Card title="Заказы по статусам"><Spinner /></Card>}
+        <MonthlyRevenueChart />
+      </div>
 
       {phoneTasks.data && phoneTasks.data.length > 0 && (
         <Card title={`Позвонить клиентам (${phoneTasks.data.length})`}>
