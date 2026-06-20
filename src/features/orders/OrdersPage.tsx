@@ -38,6 +38,16 @@ export function OrdersPage() {
     });
   };
 
+  const acceptedActive = filters.date_from || filters.date_to;
+  const clearAccepted = () => {
+    setPage(0);
+    setParams((prev) => {
+      const next = new URLSearchParams(prev);
+      next.delete("from"); next.delete("to");
+      return next;
+    });
+  };
+
   const setFilter = (key: string, value: string) => {
     setPage(0);
     setParams((prev) => {
@@ -83,6 +93,18 @@ export function OrdersPage() {
               : `: ${filters.issued_from ?? "…"} — ${filters.issued_to ?? "…"}`}
           </span>
           <button onClick={clearIssued} className="ml-auto text-muted hover:text-text" aria-label="Сбросить">✕</button>
+        </div>
+      )}
+
+      {acceptedActive && (
+        <div className="flex items-center gap-2 rounded-lg border border-primary/40 bg-primary/10 px-3 py-2 text-sm">
+          <span>
+            Приняты за период
+            {filters.date_from && filters.date_to && filters.date_from === filters.date_to
+              ? `: ${filters.date_from}`
+              : `: ${filters.date_from ?? "…"} — ${filters.date_to ?? "…"}`}
+          </span>
+          <button onClick={clearAccepted} className="ml-auto text-muted hover:text-text" aria-label="Сбросить">✕</button>
         </div>
       )}
 

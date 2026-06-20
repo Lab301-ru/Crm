@@ -85,6 +85,10 @@ const DEFAULT_ORG_SETTINGS: OrgSettings = {
   receipt_disclaimer: null,
   photo_retention_days: null,
   timezone: "Europe/Moscow",
+  owner_telegram_chat_id: null,
+  owner_email: null,
+  owner_notify_channel: "off",
+  owner_notify_events: ["order_accepted", "order_issued"],
 };
 
 export async function fetchOrgSettings(): Promise<OrgSettings> {

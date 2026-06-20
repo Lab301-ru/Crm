@@ -7,16 +7,17 @@ import {
 } from "@/shared/api/settings";
 import { useAuth } from "@/app/AuthProvider";
 import type { OrgSettings } from "@/shared/api/types";
-import { Button, Card, ErrorText, Field, Input, Spinner, Textarea } from "@/shared/ui";
+import { Button, Card, ErrorText, Field, Input, Select, Spinner, Textarea } from "@/shared/ui";
 import { FieldTemplatesEditor } from "./FieldTemplatesEditor";
 import { UsersCard } from "./UsersCard";
 
-type Tab = "org" | "fields" | "notifications" | "users";
+type Tab = "org" | "fields" | "notifications" | "owner" | "users";
 
 const tabs: { id: Tab; label: string }[] = [
   { id: "org", label: "Организация" },
   { id: "fields", label: "Поля устройств" },
   { id: "notifications", label: "Уведомления" },
+  { id: "owner", label: "Мои уведомления" },
   { id: "users", label: "Сотрудники" },
 ];
 
@@ -25,7 +26,7 @@ export function SettingsPage() {
   const isAdmin = profile?.role === "admin";
   // Сотрудникам доступны «Поля устройств» и «Уведомления»;
   // «Организация» и «Сотрудники» — только администратору.
-  const visibleTabs = tabs.filter((t) => isAdmin || (t.id !== "org" && t.id !== "users"));
+  const visibleTabs = tabs.filter((t) => isAdmin || (t.id !== "org" && t.id !== "users" && t.id !== "owner"));
   const [tab, setTab] = useState<Tab>(isAdmin ? "org" : "fields");
 
   return (
@@ -58,6 +59,7 @@ export function SettingsPage() {
       {tab === "org" && isAdmin && <OrgSettingsCard />}
       {tab === "fields" && <FieldTemplatesEditor />}
       {tab === "notifications" && <NotificationRulesCard />}
+      {tab === "owner" && isAdmin && <OwnerNotificationsCard />}
       {tab === "users" && isAdmin && <UsersCard />}
     </div>
   );
@@ -205,6 +207,99 @@ function NotificationRulesCard() {
         ))}
       </ul>
       <ErrorText error={toggle.error ?? saveTemplate.error} />
+    </Card>
+  );
+}
+
+/* ---------------- Мои уведомления (владельцу) ---------------- */
+
+function OwnerNotificationsCard() {
+  const queryClient = useQueryClient();
+  const settings = useQuery({ queryKey: ["org-settings"], queryFn: fetchOrgSettings });
+  const [form, setForm] = useState<Partial<OrgSettings> | null>(null);
+  const save = useMutation({
+    mutationFn: () => updateOrgSettings(form ?? {}),
+    onSuccess: () => {
+      setForm(null);
+      void queryClient.invalidateQueries({ queryKey: ["org-settings"] });
+    },
+  });
+
+  if (settings.isLoading) return <Spinner />;
+  if (!settings.data) return <ErrorText error={settings.error} />;
+
+  const s = { ...settings.data, ...form };
+  const set = (patch: Partial<OrgSettings>) => setForm((prev) => ({ ...prev, ...patch }));
+  const events = s.owner_notify_events ?? [];
+  const toggleEvent = (code: string) =>
+    set({ owner_notify_events: events.includes(code) ? events.filter((e) => e !== code) : [...events, code] });
+
+  return (
+    <Card
+      title="Уведомления мне"
+      actions={<Button variant="secondary" disabled={save.isPending || !form} onClick={() => save.mutate()}>Сохранить</Button>}
+    >
+      <p className="mb-3 text-xs text-muted">
+        Получайте уведомления о событиях по заказам (например, «принят» или «выдан») в Telegram или на почту.
+      </p>
+      <div className="space-y-3">
+        <Field label="Куда присылать">
+          <Select
+            value={s.owner_notify_channel}
+            onChange={(e) => set({ owner_notify_channel: e.target.value as OrgSettings["owner_notify_channel"] })}
+          >
+            <option value="off">Не присылать</option>
+            <option value="telegram">Telegram</option>
+            <option value="email">Email</option>
+          </Select>
+        </Field>
+
+        {s.owner_notify_channel === "telegram" && (
+          <Field label="Telegram chat ID">
+            <Input
+              type="number"
+              value={s.owner_telegram_chat_id ?? ""}
+              onChange={(e) => set({ owner_telegram_chat_id: e.target.value ? Number(e.target.value) : null })}
+              placeholder="например, 123456789"
+            />
+            <p className="mt-1 text-xs text-muted">
+              Узнать свой ID — напишите боту @userinfobot. Затем откройте нашего бота и нажмите «Старт», иначе он не сможет вам писать.
+            </p>
+          </Field>
+        )}
+
+        {s.owner_notify_channel === "email" && (
+          <Field label="Email для уведомлений">
+            <Input
+              type="email"
+              value={s.owner_email ?? ""}
+              onChange={(e) => set({ owner_email: e.target.value || null })}
+              placeholder="you@example.com"
+            />
+          </Field>
+        )}
+
+        {s.owner_notify_channel !== "off" && (
+          <div>
+            <p className="mb-1.5 text-xs font-medium text-muted">О каких событиях уведомлять</p>
+            <div className="flex flex-wrap gap-2">
+              {Object.entries(eventLabels).map(([code, label]) => (
+                <label
+                  key={code}
+                  className={`cursor-pointer rounded-lg border px-3 py-1.5 text-xs ${
+                    events.includes(code) ? "border-primary bg-primary/15 text-primary" : "border-border text-muted hover:text-text"
+                  }`}
+                >
+                  <input type="checkbox" className="sr-only" checked={events.includes(code)} onChange={() => toggleEvent(code)} />
+                  {label}
+                </label>
+              ))}
+            </div>
+          </div>
+        )}
+
+        <ErrorText error={save.error} />
+      </div>
     </Card>
   );
 }
