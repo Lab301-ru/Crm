@@ -30,7 +30,8 @@ export function Layout() {
     <div className="min-h-dvh md:flex">
       {/* Sidebar — планшет и ПК */}
       <aside className="hidden md:flex md:w-56 md:flex-col md:fixed md:inset-y-0 border-r border-border bg-surface">
-        <div className="px-4 py-5">
+        <div className="flex items-center gap-2 px-4 py-5">
+          <img src="/logo-mark.svg" alt="" className="h-7 w-7 shrink-0" />
           <span className="text-lg font-bold tracking-tight">ultra<span className="text-primary">CRM</span></span>
         </div>
         <nav className="flex-1 space-y-1 px-2">
@@ -72,6 +73,7 @@ export function Layout() {
           className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
         >
+          <img src="/logo-mark.svg" alt="" className="h-6 w-6 shrink-0" />
           <span className="text-base font-bold tracking-tight">
             ultra<span className="text-primary">CRM</span>
           </span>
