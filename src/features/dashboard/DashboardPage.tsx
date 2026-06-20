@@ -94,8 +94,8 @@ export function DashboardPage() {
           <Widget label="В ремонте" value={s?.in_repair ?? 0} to="/orders?status=in_repair" accent="#06B6D4" />
           <Widget label="Ожидают запчасти" value={s?.awaiting_parts ?? 0} to="/orders?status=awaiting_parts" accent="#F97316" />
           <Widget label="Готовы к выдаче" value={s?.ready ?? 0} to="/orders?status=ready" accent="#22C55E" />
-          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} to={links.today} accent="#F472B6" />
-          <Widget label="Выдано за всё время" value={s?.issued_total ?? 0} to={links.all} accent="#EC4899" />
+          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} to={links.today} accent="#EC4899" />
+          <Widget label="Выдано за всё время" value={s?.issued_total ?? 0} to={links.all} accent="#F472B6" />
         </div>
       )}
 
