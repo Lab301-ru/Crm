@@ -22,7 +22,9 @@ export function ClientsPage() {
       lastPage.length === PAGE_SIZE ? allPages.length * PAGE_SIZE : undefined,
   });
 
-  const items = clients.data?.pages.flat() ?? [];
+  // Защита от устаревшего персист-кэша старой формы (useQuery → useInfiniteQuery):
+  // если в кэше плоский массив, pages нет — не падаем, а показываем пусто до рефетча.
+  const items = clients.data?.pages?.flat() ?? [];
 
   return (
     <div className="space-y-4 p-4">

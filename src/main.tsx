@@ -44,7 +44,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister: queryPersister, maxAge: DAY_MS, buster: "v1" }}
+      persistOptions={{ persister: queryPersister, maxAge: DAY_MS, buster: "v2" }}
       onSuccess={() => {
         // кеш восстановлен: доотправляем отложенное и освежаем данные
         void queryClient.resumePausedMutations().then(() => queryClient.invalidateQueries());
