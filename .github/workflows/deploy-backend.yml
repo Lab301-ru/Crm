@@ -53,6 +53,9 @@ jobs:
       - name: Миграции
         if: steps.check.outputs.configured == 'true'
         run: supabase db push
+      # Деплой функций не зависит от миграций: проблема с подключением к БД
+      # (например, неверный пароль) не должна блокировать выкладку Edge Functions.
+      # Функциям нужен только SUPABASE_ACCESS_TOKEN, а не пароль БД.
       - name: Edge Functions
-        if: steps.check.outputs.configured == 'true'
+        if: ${{ always() && steps.check.outputs.configured == 'true' }}
         run: supabase functions deploy --project-ref "${PROJECT_REF}"
