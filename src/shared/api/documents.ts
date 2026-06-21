@@ -30,6 +30,8 @@ export interface DocSnapshot {
     working_hours: string | null;
     receipt_disclaimer: string | null;
     default_warranty_days: number;
+    signer_name: string;
+    signer_signature: string;
   };
   order: {
     display_number: string;
@@ -127,6 +129,8 @@ async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnap
       working_hours: org.working_hours,
       receipt_disclaimer: org.receipt_disclaimer,
       default_warranty_days: org.default_warranty_days,
+      signer_name: org.receipt_signer_name,
+      signer_signature: org.receipt_signer_signature,
     },
     order: {
       display_number: order.display_number,

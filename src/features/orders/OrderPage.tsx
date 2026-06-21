@@ -15,6 +15,7 @@ import { clearDraft, useDraftLoad, useDraftSave } from "@/shared/lib/useFormDraf
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
 import { DOC_LABELS, fetchOrderDocuments, type DocType } from "@/shared/api/documents";
 import { PhotosCard } from "./PhotosCard";
+import { PartsCard } from "./PartsCard";
 
 export function OrderPage() {
   const { id = "" } = useParams();
@@ -152,6 +153,9 @@ export function OrderPage() {
 
       {/* Работы и запчасти */}
       <ItemsCard orderId={id} items={items.data ?? []} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
+
+      {/* Закупка запчастей */}
+      <PartsCard orderId={id} closed={["issued", "scrapped"].includes(o.status)} />
 
       {/* Оплата */}
       <PaymentCard order={o} onSaved={invalidate} />

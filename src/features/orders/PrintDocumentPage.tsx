@@ -191,16 +191,37 @@ function ItemsTable({ s, withTotals }: { s: DocSnapshot; withTotals: boolean }) 
   );
 }
 
-function Signatures({ left, right }: { left: string; right: string }) {
+/**
+ * Подписи. Слева — сторона сервиса: автоподстановка факсимиле-подписи
+ * и расшифровки (по умолчанию подпись «Б.Ю.Г.», имя «Юрий» — из
+ * org_settings). Справа — сторона клиента, остаётся пустой для подписи
+ * от руки.
+ */
+function Signatures({ left, right, signer }: {
+  left: string;
+  right: string;
+  signer?: { name: string; signature: string };
+}) {
   return (
     <div className="mt-8 grid grid-cols-2 gap-8">
-      {[left, right].map((label) => (
-        <div key={label}>
-          <p className="mb-6 text-[12px] text-neutral-600">{label}</p>
-          <div className="border-b border-black" />
-          <p className="mt-1 text-[10px] text-neutral-500">подпись / расшифровка</p>
+      <div>
+        <p className="mb-6 text-[12px] text-neutral-600">{left}</p>
+        <div className="relative border-b border-black">
+          {signer?.signature && (
+            <span className="absolute bottom-1 left-2 font-[cursive] text-[18px] italic text-neutral-800">
+              {signer.signature}
+            </span>
+          )}
         </div>
-      ))}
+        <p className="mt-1 text-[10px] text-neutral-500">
+          подпись / расшифровка{signer?.name ? ` — ${signer.name}` : ""}
+        </p>
+      </div>
+      <div>
+        <p className="mb-6 text-[12px] text-neutral-600">{right}</p>
+        <div className="border-b border-black" />
+        <p className="mt-1 text-[10px] text-neutral-500">подпись / расшифровка</p>
+      </div>
     </div>
   );
 }
@@ -244,7 +265,11 @@ function IntakeReceipt({ s, qr }: { s: DocSnapshot; qr: string | null }) {
       <p className="text-[11px]">
         С условиями ремонта согласен. Устройство передал, с описанием состояния и комплектации согласен.
       </p>
-      <Signatures left="Устройство принял (сотрудник)" right="Устройство сдал (клиент)" />
+      <Signatures
+        left="Устройство принял (сотрудник)"
+        right="Устройство сдал (клиент)"
+        signer={{ name: s.org.signer_name, signature: s.org.signer_signature }}
+      />
     </>
   );
 }
@@ -281,6 +306,7 @@ function WorkAct({ s }: { s: DocSnapshot }) {
       <Signatures
         left={`Исполнитель${s.master_name ? ` (${s.master_name})` : ""}`}
         right="Заказчик"
+        signer={{ name: s.org.signer_name, signature: s.org.signer_signature }}
       />
     </>
   );
@@ -349,7 +375,11 @@ function IssueAct({ s }: { s: DocSnapshot }) {
         Устройство получено в рабочем состоянии, внешний вид и комплектация проверены.
         Претензий к выполненным работам и состоянию устройства не имею.
       </p>
-      <Signatures left="Устройство выдал (сотрудник)" right="Устройство получил (клиент)" />
+      <Signatures
+        left="Устройство выдал (сотрудник)"
+        right="Устройство получил (клиент)"
+        signer={{ name: s.org.signer_name, signature: s.org.signer_signature }}
+      />
     </>
   );
 }
@@ -365,7 +395,11 @@ function WarrantyCard({ s }: { s: DocSnapshot }) {
       </section>
       <DeviceBlock s={s} />
       <WarrantyBlock s={s} />
-      <Signatures left="Исполнитель (подпись, печать)" right="Клиент" />
+      <Signatures
+        left="Исполнитель (подпись, печать)"
+        right="Клиент"
+        signer={{ name: s.org.signer_name, signature: s.org.signer_signature }}
+      />
     </>
   );
 }

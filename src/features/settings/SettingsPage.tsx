@@ -100,6 +100,12 @@ function OrgSettingsCard() {
         <Field label="Гарантия по умолчанию, дней">
           <Input type="number" min={0} value={s.default_warranty_days} onChange={(e) => set("default_warranty_days", Number(e.target.value))} />
         </Field>
+        <Field label="Подписант в квитанции (имя)">
+          <Input value={s.receipt_signer_name ?? ""} onChange={(e) => set("receipt_signer_name", e.target.value)} />
+        </Field>
+        <Field label="Подпись (факсимиле)">
+          <Input value={s.receipt_signer_signature ?? ""} onChange={(e) => set("receipt_signer_signature", e.target.value)} />
+        </Field>
       </div>
       <div className="mt-3">
         <Field label="Оговорка на квитанции">

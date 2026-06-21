@@ -212,6 +212,59 @@ export interface OrgSettings {
   owner_email: string | null;
   owner_notify_channel: "off" | "telegram" | "email";
   owner_notify_events: string[];
+  receipt_signer_name: string;
+  receipt_signer_signature: string;
+}
+
+export type PartStatus = "need_order" | "ordered" | "received";
+
+export interface OrderPart {
+  id: string;
+  order_id: string;
+  name: string;
+  shop_url: string | null;
+  cost: number;
+  qty: number;
+  status: PartStatus;
+  receipt_path: string | null;
+  receipt_name: string | null;
+  note: string | null;
+  ordered_at: string | null;
+  received_at: string | null;
+  created_at: string;
+}
+
+export type ExpenseCategory =
+  | "parts" | "salary" | "rent" | "ads" | "courier" | "outsource" | "digital" | "other";
+
+export interface Expense {
+  id: string;
+  category: ExpenseCategory;
+  amount: number;
+  spent_on: string;
+  description: string | null;
+  order_id: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface AnalyticsStats {
+  period: "all" | "month";
+  orders_count: number;
+  revenue: number;
+  avg_check: number;
+  max_check: number;
+  top_repairs: { name: string; count: number; sum: number }[];
+  top_clients: { client_id: string; name: string; phone: string | null; orders_count: number; total: number }[];
+}
+
+export interface FinanceOverview {
+  period: "today" | "month" | "year" | "all";
+  revenue: number;
+  expenses: number;
+  net_profit: number;
+  margin: number;
+  expenses_by_category: Partial<Record<ExpenseCategory, number>>;
 }
 
 export interface NotificationRule {
