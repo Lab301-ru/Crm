@@ -19,6 +19,10 @@ html {
   color-scheme: dark;
 }
 
+/* Светлая тема вынесена в ./theme-light.css (обычный CSS, без директив
+   Tailwind) — иначе компилятор Tailwind вырезает переопределение
+   theme-токенов из @theme. Файл импортируется в main.tsx после index.css. */
+
 body {
   background-color: var(--color-bg);
   color: var(--color-text);

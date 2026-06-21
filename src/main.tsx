@@ -9,6 +9,7 @@ import { router } from "./app/router";
 import { changeStatus, updateOrder } from "./shared/api/orders";
 import type { Order } from "./shared/api/types";
 import "./index.css";
+import "./theme-light.css";
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
@@ -44,7 +45,7 @@ createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <PersistQueryClientProvider
       client={queryClient}
-      persistOptions={{ persister: queryPersister, maxAge: DAY_MS, buster: "v1" }}
+      persistOptions={{ persister: queryPersister, maxAge: DAY_MS, buster: "v2" }}
       onSuccess={() => {
         // кеш восстановлен: доотправляем отложенное и освежаем данные
         void queryClient.resumePausedMutations().then(() => queryClient.invalidateQueries());

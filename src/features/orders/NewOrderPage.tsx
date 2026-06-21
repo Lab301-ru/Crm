@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState, type FormEvent } from "react";
 import { useNavigate } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { createOrder } from "@/shared/api/orders";
-import { searchClients } from "@/shared/api/clients";
+import { searchClients, updateClient } from "@/shared/api/clients";
 import { addCategory, fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, FieldTemplate } from "@/shared/api/types";
@@ -19,6 +19,8 @@ interface Draft {
   clientQuery: string;
   client: Client | null;
   clientName: string;
+  clientEmail: string;
+  clientTelegram: string;
   categoryId: string;
   categoryQuery: string;
   brandQuery: string;
@@ -56,7 +58,21 @@ export function NewOrderPage() {
   const [clientQuery, setClientQuery] = useState(draft.clientQuery ?? "+7 ");
   const [client, setClient] = useState<Client | null>(draft.client ?? null);
   const [clientName, setClientName] = useState(draft.clientName ?? "");
+  const [clientEmail, setClientEmail] = useState(draft.clientEmail ?? "");
+  const [clientTelegram, setClientTelegram] = useState(draft.clientTelegram ?? "");
   const debouncedClient = useDebounced(clientQuery, 300);
+
+  // Выбор существующего клиента подставляет его контакты в редактируемые поля.
+  const selectClient = (c: Client) => {
+    setClient(c);
+    setClientEmail(c.email ?? "");
+    setClientTelegram(c.messenger ?? "");
+  };
+  const clearClient = () => {
+    setClient(null);
+    setClientEmail("");
+    setClientTelegram("");
+  };
   const foundClients = useQuery({
     queryKey: ["client-search", debouncedClient],
     queryFn: () => searchClients(debouncedClient, 5),
@@ -84,7 +100,7 @@ export function NewOrderPage() {
 
   // Автосохранение черновика при любом изменении полей.
   const draftJson = JSON.stringify({
-    clientQuery, client, clientName, categoryId, categoryQuery, brandQuery, brandId, modelQuery,
+    clientQuery, client, clientName, clientEmail, clientTelegram, categoryId, categoryQuery, brandQuery, brandId, modelQuery,
     modelId, serial, completeness, appearance, warrantyCase, customFields,
     defect, dueDate, masterId, prepayment,
   });
@@ -145,7 +161,7 @@ export function NewOrderPage() {
   });
 
   const submit = useMutation({
-    mutationFn: async () => {
+    mutationFn: async (initialStatus: "accepted" | "new") => {
       // Категория: выбрана из справочника либо введена вручную — создаём на лету.
       let resolvedCategoryId = categoryId;
       if (!resolvedCategoryId && categoryQuery.trim()) {
@@ -168,10 +184,23 @@ export function NewOrderPage() {
           resolvedBrandId = r.brand_id;
         }
       }
+      // Существующему клиенту обновляем email/Telegram, если изменили.
+      if (client) {
+        const email = clientEmail.trim() || null;
+        const messenger = clientTelegram.trim() || null;
+        if (email !== (client.email ?? null) || messenger !== (client.messenger ?? null)) {
+          await updateClient(client.id, { email, messenger });
+        }
+      }
       return createOrder({
         client: client
           ? { id: client.id }
-          : { name: clientName.trim(), phone: clientQuery.trim() },
+          : {
+              name: clientName.trim(),
+              phone: clientQuery.trim(),
+              email: clientEmail.trim() || undefined,
+              messenger: clientTelegram.trim() || undefined,
+            },
         device: {
           category_id: resolvedCategoryId,
           brand_id: resolvedBrandId,
@@ -183,6 +212,7 @@ export function NewOrderPage() {
           custom_fields: customFields,
         },
         order: {
+          initial_status: initialStatus,
           claimed_defect: defect.trim(),
           due_date: dueDate || undefined,
           master_id: masterId || undefined,
@@ -206,7 +236,7 @@ export function NewOrderPage() {
 
   const onSubmit = (e: FormEvent) => {
     e.preventDefault();
-    if (canSubmit) submit.mutate();
+    if (canSubmit) submit.mutate("accepted");
   };
 
   const masters = profiles.data?.filter((p) => p.is_active && p.role !== "manager") ?? [];
@@ -214,7 +244,7 @@ export function NewOrderPage() {
   // Полный сброс формы и черновика — начать новую заявку с чистого листа.
   const resetForm = () => {
     localStorage.removeItem(DRAFT_KEY);
-    setClientQuery("+7 "); setClient(null); setClientName("");
+    setClientQuery("+7 "); setClient(null); setClientName(""); setClientEmail(""); setClientTelegram("");
     setCategoryId(""); setCategoryQuery(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
     setSerial(""); setCompleteness(""); setAppearance(""); setWarrantyCase(false); setCustomFields({});
     setDefect(""); setDueDate(""); setMasterId(""); setPrepayment("");
@@ -235,7 +265,7 @@ export function NewOrderPage() {
               <p className="text-sm font-medium">{client.name}</p>
               <p className="text-xs text-muted">{formatPhone(client.phone)}</p>
             </div>
-            <Button variant="ghost" type="button" onClick={() => setClient(null)}>Сменить</Button>
+            <Button variant="ghost" type="button" onClick={clearClient}>Сменить</Button>
           </div>
         ) : (
           <div className="space-y-3">
@@ -255,7 +285,7 @@ export function NewOrderPage() {
                   <button
                     type="button"
                     key={c.id}
-                    onClick={() => setClient(c)}
+                    onClick={() => selectClient(c)}
                     className="flex w-full items-center justify-between border-b border-border px-3 py-2.5 text-left last:border-0 hover:bg-surface-2"
                   >
                     <span className="text-sm">{c.name}</span>
@@ -269,6 +299,25 @@ export function NewOrderPage() {
             </Field>
           </div>
         )}
+
+        {/* Контакты клиента — для уведомлений (Email обязателен для писем, Telegram — @ник или телефон) */}
+        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+          <Field label="Email (необязательно)">
+            <Input
+              type="email"
+              value={clientEmail}
+              onChange={(e) => setClientEmail(e.target.value)}
+              placeholder="client@example.com"
+            />
+          </Field>
+          <Field label="Telegram (необязательно)">
+            <Input
+              value={clientTelegram}
+              onChange={(e) => setClientTelegram(e.target.value)}
+              placeholder="@username или телефон"
+            />
+          </Field>
+        </div>
       </Card>
 
       {/* ШАГ 2: устройство */}
@@ -434,9 +483,21 @@ export function NewOrderPage() {
       </Card>
 
       <ErrorText error={submit.error} />
-      <Button type="submit" className="w-full py-3 text-base" disabled={!canSubmit || submit.isPending}>
-        {submit.isPending ? "Создаём…" : "Принять в ремонт"}
-      </Button>
+      <div className="space-y-2">
+        <Button type="submit" className="w-full py-3 text-base" disabled={!canSubmit || submit.isPending}>
+          {submit.isPending && submit.variables === "accepted" ? "Создаём…" : "Принять в ремонт"}
+        </Button>
+        {/* Предзапись: клиент записался, но ещё не пришёл — заказ со статусом «Не принят» */}
+        <Button
+          type="button"
+          variant="secondary"
+          className="w-full py-3 text-base"
+          disabled={!canSubmit || submit.isPending}
+          onClick={() => { if (canSubmit) submit.mutate("new"); }}
+        >
+          {submit.isPending && submit.variables === "new" ? "Создаём…" : "Предзапись (клиент ещё не пришёл)"}
+        </Button>
+      </div>
     </form>
   );
 }

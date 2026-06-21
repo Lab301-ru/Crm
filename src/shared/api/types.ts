@@ -208,6 +208,10 @@ export interface OrgSettings {
   receipt_disclaimer: string | null;
   photo_retention_days: number | null;
   timezone: string;
+  owner_telegram_chat_id: number | null;
+  owner_email: string | null;
+  owner_notify_channel: "off" | "telegram" | "email";
+  owner_notify_events: string[];
 }
 
 export interface NotificationRule {

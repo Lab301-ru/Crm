@@ -9,7 +9,7 @@ import { formatMoney, formatPhone } from "@/shared/lib/format";
 import { renderNotification } from "@/shared/lib/notifications";
 import { Card, EmptyState, Spinner } from "@/shared/ui";
 import { OrdersTable } from "@/features/orders/OrdersTable";
-import { RevenueBars, StatusDonut } from "./Charts";
+import { MonthlyRevenueChart, StatusDonut } from "./Charts";
 
 /** Ссылки на список заказов, выданных за период (по issued_at). */
 function issuedLinks() {
@@ -24,6 +24,7 @@ function issuedLinks() {
     month: `/orders?issued_from=${month}&issued_to=${today}`,
     year: `/orders?issued_from=${year}&issued_to=${today}`,
     all: "/orders?status=issued",
+    acceptedToday: `/orders?from=${today}&to=${today}`,
   };
 }
 
@@ -89,12 +90,12 @@ export function DashboardPage() {
         <Spinner />
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-3 xl:grid-cols-6">
-          <Widget label="Принято сегодня" value={s?.accepted_today ?? 0} to="/orders" />
+          <Widget label="Принято сегодня" value={s?.accepted_today ?? 0} to={links.acceptedToday} accent="#3B82F6" />
           <Widget label="В ремонте" value={s?.in_repair ?? 0} to="/orders?status=in_repair" accent="#06B6D4" />
           <Widget label="Ожидают запчасти" value={s?.awaiting_parts ?? 0} to="/orders?status=awaiting_parts" accent="#F97316" />
           <Widget label="Готовы к выдаче" value={s?.ready ?? 0} to="/orders?status=ready" accent="#22C55E" />
-          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} to={links.today} accent="#14B8A6" />
-          <Widget label="Выдано за всё время" value={s?.issued_total ?? 0} to={links.all} accent="#14B8A6" />
+          <Widget label="Выдано сегодня" value={s?.issued_today ?? 0} to={links.today} accent="#EC4899" />
+          <Widget label="Выдано за всё время" value={s?.issued_total ?? 0} to={links.all} accent="#F472B6" />
         </div>
       )}
 
@@ -106,13 +107,11 @@ export function DashboardPage() {
         </div>
       )}
 
-      {/* Графики: распределение по статусам и тренд выручки/прибыли */}
-      {analytics.data && (
-        <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
-          <StatusDonut slices={analytics.data.by_status} />
-          <RevenueBars days={analytics.data.revenue_by_day} />
-        </div>
-      )}
+      {/* Графики: кликабельное распределение по статусам и помесячная выручка */}
+      <div className="grid grid-cols-1 gap-3 lg:grid-cols-2">
+        {analytics.data ? <StatusDonut slices={analytics.data.by_status} /> : <Card title="Заказы по статусам"><Spinner /></Card>}
+        <MonthlyRevenueChart />
+      </div>
 
       {phoneTasks.data && phoneTasks.data.length > 0 && (
         <Card title={`Позвонить клиентам (${phoneTasks.data.length})`}>
