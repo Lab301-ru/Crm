@@ -162,7 +162,7 @@ function PartRow({ part, closed, userId, onChanged }: {
 
         <button
           onClick={() => setExpanded(!expanded)}
-          className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-border"
+          className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/25"
         >
           {expanded ? "Скрыть файлы" : "Файлы и детали"}
         </button>
