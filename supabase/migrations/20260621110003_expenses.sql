@@ -10,7 +10,7 @@
 --   Расход можно (опционально) связать с конкретным заказом.
 -- ============================================================
 
-create table public.expenses (
+create table if not exists public.expenses (
   id uuid primary key default gen_random_uuid(),
   category text not null check (category in (
     'parts', 'salary', 'rent', 'ads', 'courier', 'outsource', 'digital', 'other'
@@ -26,18 +26,28 @@ create table public.expenses (
   updated_at timestamptz not null default now()
 );
 
-create index idx_expenses_spent_on on public.expenses (spent_on) where deleted_at is null;
-create index idx_expenses_category on public.expenses (category) where deleted_at is null;
-create index idx_expenses_order on public.expenses (order_id) where order_id is not null and deleted_at is null;
+create index if not exists idx_expenses_spent_on on public.expenses (spent_on) where deleted_at is null;
+create index if not exists idx_expenses_category on public.expenses (category) where deleted_at is null;
+create index if not exists idx_expenses_order on public.expenses (order_id) where order_id is not null and deleted_at is null;
 
-create trigger trg_expenses_updated_at before update on public.expenses
-  for each row execute function public.set_updated_at();
-create trigger trg_expenses_audit after insert or update on public.expenses
-  for each row execute function public.fn_audit();
-create trigger trg_expenses_forbid_delete before delete on public.expenses
-  for each row execute function public.fn_forbid_delete();
-create trigger trg_expenses_guard_soft_delete before update on public.expenses
-  for each row execute function public.fn_guard_soft_delete();
+do $$ begin
+  if not exists (select 1 from pg_trigger where tgname='trg_expenses_updated_at') then
+    create trigger trg_expenses_updated_at before update on public.expenses
+      for each row execute function public.set_updated_at();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname='trg_expenses_audit') then
+    create trigger trg_expenses_audit after insert or update on public.expenses
+      for each row execute function public.fn_audit();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname='trg_expenses_forbid_delete') then
+    create trigger trg_expenses_forbid_delete before delete on public.expenses
+      for each row execute function public.fn_forbid_delete();
+  end if;
+  if not exists (select 1 from pg_trigger where tgname='trg_expenses_guard_soft_delete') then
+    create trigger trg_expenses_guard_soft_delete before update on public.expenses
+      for each row execute function public.fn_guard_soft_delete();
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- RLS: финансы — данные менеджера/админа (как revenue в dashboard).
@@ -45,12 +55,20 @@ create trigger trg_expenses_guard_soft_delete before update on public.expenses
 -- ------------------------------------------------------------
 alter table public.expenses enable row level security;
 
-create policy expenses_select on public.expenses
-  for select to authenticated using (public.is_manager_up());
-create policy expenses_insert on public.expenses
-  for insert to authenticated with check (public.is_manager_up());
-create policy expenses_update on public.expenses
-  for update to authenticated using (public.is_manager_up()) with check (public.is_manager_up());
+do $$ begin
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='expenses' and policyname='expenses_select') then
+    create policy expenses_select on public.expenses
+      for select to authenticated using (public.is_manager_up());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='expenses' and policyname='expenses_insert') then
+    create policy expenses_insert on public.expenses
+      for insert to authenticated with check (public.is_manager_up());
+  end if;
+  if not exists (select 1 from pg_policies where schemaname='public' and tablename='expenses' and policyname='expenses_update') then
+    create policy expenses_update on public.expenses
+      for update to authenticated using (public.is_manager_up()) with check (public.is_manager_up());
+  end if;
+end $$;
 
 -- ------------------------------------------------------------
 -- Сводка прибыльности за период.

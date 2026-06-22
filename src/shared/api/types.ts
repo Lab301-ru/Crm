@@ -216,22 +216,39 @@ export interface OrgSettings {
   receipt_signer_signature: string;
 }
 
-export type PartStatus = "need_order" | "ordered" | "received";
+export type PartStatus = "need_order" | "ordered" | "in_transit" | "received" | "installed";
+export type PartFileKind = "screenshot" | "receipt" | "invoice";
 
 export interface OrderPart {
   id: string;
   order_id: string;
   name: string;
+  qty: number;
+  master_comment: string | null;
   shop_url: string | null;
   cost: number;
-  qty: number;
+  supplier: string | null;
   status: PartStatus;
-  receipt_path: string | null;
-  receipt_name: string | null;
+  screenshot_path: string | null; screenshot_name: string | null;
+  receipt_path: string | null;    receipt_name: string | null;
+  invoice_path: string | null;    invoice_name: string | null;
   note: string | null;
   ordered_at: string | null;
   received_at: string | null;
+  installed_at: string | null;
   created_at: string;
+}
+
+/** Строка дашборда закупщика: запчасть + контекст заказа/клиента. */
+export interface PartOverviewRow extends OrderPart {
+  order_number: string;
+  order_status: string;
+  order_status_label: string;
+  order_status_color: string;
+  master_id: string | null;
+  client_name: string;
+  client_phone: string;
+  device_label: string;
 }
 
 export type ExpenseCategory =
