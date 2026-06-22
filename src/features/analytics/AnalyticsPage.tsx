@@ -1,19 +1,20 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  createExpense, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, fetchAnalyticsStats,
+  createExpense, EXPENSE_CATEGORIES, EXPENSE_CATEGORY_LABELS, fetchAnalyticsSeries, fetchAnalyticsStats,
   fetchExpenses, fetchFinanceOverview, softDeleteExpense,
 } from "@/shared/api/finance";
-import type { ExpenseCategory } from "@/shared/api/types";
+import type { AnalyticsSeriesPoint, ExpenseCategory } from "@/shared/api/types";
 import { formatDate, formatMoney } from "@/shared/lib/format";
 import { useAuth } from "@/app/AuthProvider";
 import { Button, Card, EmptyState, ErrorText, Field, Input, Select, Spinner } from "@/shared/ui";
 
-type AnalyticsPeriod = "all" | "month";
+type AnalyticsPeriod = "all" | "month" | "year";
 type FinancePeriod = "today" | "month" | "year" | "all";
 
 const ANALYTICS_PERIODS: { value: AnalyticsPeriod; label: string }[] = [
   { value: "month", label: "Месяц" },
+  { value: "year", label: "Год" },
   { value: "all", label: "Всё время" },
 ];
 const FINANCE_PERIODS: { value: FinancePeriod; label: string }[] = [
@@ -31,6 +32,7 @@ export function AnalyticsPage() {
     <div className="space-y-6">
       <h1 className="text-xl font-bold">Аналитика</h1>
       <AnalyticsSection />
+      <TrendChart />
       {isManager && <FinanceSection />}
       {isManager && <ExpensesSection />}
     </div>
@@ -92,6 +94,104 @@ function AnalyticsSection() {
         </>
       )}
     </div>
+  );
+}
+
+/* ----------------------------- Линейный график по месяцам ----------------------------- */
+
+type MetricKey = "revenue" | "profit" | "orders_count" | "avg_check";
+
+const METRICS: { key: MetricKey; label: string; color: string; money: boolean }[] = [
+  { key: "revenue", label: "Выручка", color: "#22C55E", money: true },
+  { key: "profit", label: "Чистая прибыль", color: "#3B82F6", money: true },
+  { key: "orders_count", label: "Заказы", color: "#F59E0B", money: false },
+  { key: "avg_check", label: "Средний чек", color: "#8B5CF6", money: true },
+];
+
+const MONTHS_SHORT = ["янв", "фев", "мар", "апр", "май", "июн", "июл", "авг", "сен", "окт", "ноя", "дек"];
+
+function monthLabel(ym: string): string {
+  const [, m] = ym.split("-");
+  return MONTHS_SHORT[Number(m) - 1] ?? ym;
+}
+
+/** Линейный график выбранного показателя по месяцам (последние 12). */
+function TrendChart() {
+  const [metric, setMetric] = useState<MetricKey>("revenue");
+  const series = useQuery({ queryKey: ["analytics-series"], queryFn: () => fetchAnalyticsSeries(12) });
+
+  const cfg = METRICS.find((m) => m.key === metric)!;
+  const fmt = (v: number) => (cfg.money ? formatMoney(v) : String(v));
+
+  const selector = (
+    <Select value={metric} onChange={(e) => setMetric(e.target.value as MetricKey)} className="w-auto px-2 py-1 text-xs">
+      {METRICS.map((m) => <option key={m.key} value={m.key}>{m.label}</option>)}
+    </Select>
+  );
+
+  return (
+    <Card title="Динамика по месяцам" actions={selector}>
+      {series.isLoading ? <Spinner /> :
+       series.error ? <ErrorText error={series.error} /> :
+       <LineChart points={series.data ?? []} metric={metric} color={cfg.color} fmt={fmt} />}
+    </Card>
+  );
+}
+
+function LineChart({ points, metric, color, fmt }: {
+  points: AnalyticsSeriesPoint[];
+  metric: MetricKey;
+  color: string;
+  fmt: (v: number) => string;
+}) {
+  if (points.length === 0 || points.every((p) => p[metric] === 0)) {
+    return <EmptyState text="Нет данных за период" />;
+  }
+
+  const W = 640, H = 200, padX = 8, padTop = 12, padBottom = 22;
+  const vals = points.map((p) => p[metric]);
+  const max = Math.max(1, ...vals);
+  const n = points.length;
+  const innerW = W - padX * 2;
+  const x = (i: number) => (n === 1 ? W / 2 : padX + (i * innerW) / (n - 1));
+  const y = (v: number) => padTop + (1 - v / max) * (H - padTop - padBottom);
+
+  const line = points.map((p, i) => `${i === 0 ? "M" : "L"} ${x(i).toFixed(1)} ${y(p[metric]).toFixed(1)}`).join(" ");
+  const area = `${line} L ${x(n - 1).toFixed(1)} ${H - padBottom} L ${x(0).toFixed(1)} ${H - padBottom} Z`;
+  const last = points[n - 1][metric];
+  const total = vals.reduce((a, v) => a + v, 0);
+
+  return (
+    <>
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full" preserveAspectRatio="none">
+        <defs>
+          <linearGradient id={`grad-${metric}`} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0%" stopColor={color} stopOpacity="0.25" />
+            <stop offset="100%" stopColor={color} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {/* сетка-базис */}
+        <line x1={padX} y1={H - padBottom} x2={W - padX} y2={H - padBottom} stroke="var(--color-border)" strokeWidth="1" />
+        <path d={area} fill={`url(#grad-${metric})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" strokeLinejoin="round" strokeLinecap="round" />
+        {points.map((p, i) => (
+          <g key={p.month}>
+            <circle cx={x(i)} cy={y(p[metric])} r="3" fill={color}>
+              <title>{p.month}: {fmt(p[metric])}</title>
+            </circle>
+            <text x={x(i)} y={H - 6} textAnchor="middle" fontSize="9" fill="var(--color-muted)">
+              {monthLabel(p.month)}
+            </text>
+          </g>
+        ))}
+      </svg>
+      <div className="mt-3 flex flex-wrap gap-5 text-sm">
+        <span className="flex items-center gap-2">
+          <span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} /> Последний месяц: <b>{fmt(last)}</b>
+        </span>
+        <span className="text-muted">За 12 мес.: <b className="text-text">{fmt(total)}</b></span>
+      </div>
+    </>
   );
 }
 

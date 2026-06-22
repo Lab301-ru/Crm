@@ -266,13 +266,21 @@ export interface Expense {
 }
 
 export interface AnalyticsStats {
-  period: "all" | "month";
+  period: "all" | "month" | "year";
   orders_count: number;
   revenue: number;
   avg_check: number;
   max_check: number;
   top_repairs: { name: string; count: number; sum: number }[];
   top_clients: { client_id: string; name: string; phone: string | null; orders_count: number; total: number }[];
+}
+
+export interface AnalyticsSeriesPoint {
+  month: string;          // 'YYYY-MM'
+  revenue: number;
+  profit: number;
+  orders_count: number;
+  avg_check: number;
 }
 
 export interface FinanceOverview {
