@@ -195,7 +195,7 @@ function PartLine({ part, onChanged }: { part: PartOverviewRow; onChanged: () =>
           </Select>
           <button
             onClick={() => setExpanded(!expanded)}
-            className="inline-flex items-center gap-1 rounded-lg border border-primary/40 bg-primary/15 px-3 py-1.5 text-sm font-medium text-primary transition-colors hover:bg-primary/25"
+            className="inline-flex items-center gap-1 rounded-lg border border-[#f9731666] bg-[#f9731626] px-3 py-1.5 text-sm font-medium text-[#f97316] transition-colors hover:bg-[#f9731640]"
           >
             {expanded ? "Скрыть файлы" : "Файлы"}
           </button>
