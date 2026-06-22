@@ -55,3 +55,26 @@ select cron.schedule(
 --                           from cron.job_run_details order by start_time desc limit 10;
 -- Секреты в Vault:        select name, description from vault.secrets;
 -- Снять расписание:       select cron.unschedule('notify-dispatch-every-minute');
+
+-- =============================================================
+-- АЛЬТЕРНАТИВА (используется на проде): прямой telegram-отправщик в БД,
+-- без Edge Function. Проще, когда нужен только Telegram-канал.
+-- Функция public.fn_send_telegram_pending() (миграция
+-- 20260622100001_telegram_dispatch_capture) сама ходит в Telegram Bot API
+-- через pg_net, читая токен из Vault. Email она НЕ шлёт — для email
+-- оставьте путь через notify-dispatch выше.
+-- =============================================================
+
+-- ── Шаг 1. Токен бота — в Vault (BotFather → токен). Один раз ──
+-- select vault.create_secret('123456:ABC-DEF...', 'telegram_bot_token', 'Telegram Bot API token');
+--   (обновить: select vault.update_secret(id, 'NEW_TOKEN')
+--              from vault.secrets where name='telegram_bot_token';)
+
+-- ── Шаг 2. Расписание раз в минуту ──
+-- select cron.schedule('telegram-dispatch', '* * * * *', $$ select public.fn_send_telegram_pending(); $$);
+-- Снять:  select cron.unschedule('telegram-dispatch');
+
+-- ВАЖНО: если pg_cron перестал выполнять задания (cron.job_run_details
+-- пуст, attempts не растут) — перезапустите проект (Dashboard → Settings →
+-- General → Restart project): это поднимает фоновый воркер pg_cron.
+-- Запасной планировщик в обход pg_cron — .github/workflows/notify-cron.yml.

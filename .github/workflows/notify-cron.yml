@@ -1,0 +1,44 @@
+name: Notify cron (fallback)
+
+# Запасной планировщик доставки Telegram-уведомлений — на случай, если
+# фоновый воркер pg_cron на проекте «засыпает» после простоя. Дёргает
+# ту же рабочую функцию public.fn_send_telegram_pending() через PostgREST
+# RPC, что и cron-задача telegram-dispatch (идемпотентно: FOR UPDATE SKIP
+# LOCKED, повторный вызов лишних сообщений не создаёт).
+#
+# Работает, ТОЛЬКО если в репозитории заданы секреты:
+#   SUPABASE_PROJECT_REF       — ref проекта (Settings → General)
+#   SUPABASE_SERVICE_ROLE_KEY  — service_role ключ (Settings → API)
+# Нет секретов — джоб тихо пропускается.
+#
+# Примечание: минимальный интервал GitHub Actions schedule ~5 минут, и он
+# может задерживаться. Это страховка, а не замена pg_cron (раз в минуту).
+
+on:
+  schedule:
+    - cron: "*/5 * * * *"
+  workflow_dispatch:
+
+jobs:
+  dispatch:
+    name: Доставить очередь Telegram
+    runs-on: ubuntu-latest
+    steps:
+      - name: Вызвать fn_send_telegram_pending
+        env:
+          REF: ${{ secrets.SUPABASE_PROJECT_REF }}
+          KEY: ${{ secrets.SUPABASE_SERVICE_ROLE_KEY }}
+        run: |
+          if [ -z "$REF" ] || [ -z "$KEY" ]; then
+            echo "Секреты SUPABASE_PROJECT_REF / SUPABASE_SERVICE_ROLE_KEY не заданы — пропуск."
+            exit 0
+          fi
+          code=$(curl -s -o /tmp/out.json -w "%{http_code}" \
+            -X POST "https://${REF}.supabase.co/rest/v1/rpc/fn_send_telegram_pending" \
+            -H "apikey: ${KEY}" \
+            -H "Authorization: Bearer ${KEY}" \
+            -H "Content-Type: application/json" \
+            -d '{}')
+          echo "HTTP $code"; cat /tmp/out.json || true
+          # 2xx — успех (тело = число отправленных). Иначе провалить джоб.
+          [ "$code" -ge 200 ] && [ "$code" -lt 300 ]
