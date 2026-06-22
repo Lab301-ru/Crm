@@ -1,16 +1,16 @@
-import { useMemo, useRef, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  fetchPartsOverview, PART_FILE_LABELS, PART_STATUS_COLORS, PART_STATUS_LABELS,
-  PART_STATUSES_ORDER, removePartFile, signedReceiptUrl, updatePart, uploadPartFile,
+  fetchPartsOverview, PART_STATUS_COLORS, PART_STATUS_LABELS,
+  PART_STATUSES_ORDER, updatePart,
 } from "@/shared/api/parts";
 import { fetchProfiles } from "@/shared/api/settings";
-import type { OrderPart, PartFileKind, PartOverviewRow, PartStatus } from "@/shared/api/types";
+import type { PartOverviewRow, PartStatus } from "@/shared/api/types";
 import { formatDate, formatMoney, formatPhone } from "@/shared/lib/format";
-import { Button, Card, EmptyState, ErrorText, Input, Select, Spinner, StatusBadge } from "@/shared/ui";
+import { Card, EmptyState, ErrorText, Input, Select, Spinner, StatusBadge } from "@/shared/ui";
+import { PartFiles } from "./PartFiles";
 
-const FILE_KINDS: PartFileKind[] = ["screenshot", "receipt", "invoice"];
 const DEFAULT_STATUSES: PartStatus[] = ["need_order", "ordered", "in_transit"];
 
 /**
@@ -193,19 +193,17 @@ function PartLine({ part, onChanged }: { part: PartOverviewRow; onChanged: () =>
               <option key={s} value={s}>{PART_STATUS_LABELS[s]}</option>
             ))}
           </Select>
-          <button onClick={() => setExpanded(!expanded)} className="text-xs text-primary hover:underline">
-            файлы
+          <button onClick={() => setExpanded(!expanded)} className="text-sm font-medium text-primary hover:underline">
+            {expanded ? "скрыть файлы" : "файлы"}
           </button>
         </div>
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-border pt-3">
-          {FILE_KINDS.map((kind) => (
-            <FileSlotMini key={kind} part={part} kind={kind} onChanged={onChanged} />
-          ))}
+        <div className="mt-3 space-y-3 border-t border-border pt-3">
+          <PartFiles part={part} closed={false} onChanged={onChanged} />
           {(part.ordered_at || part.received_at || part.installed_at) && (
-            <p className="pt-2 text-[10px] text-muted">
+            <p className="pt-1 text-xs text-muted">
               {part.ordered_at && <>заказана: {formatDate(part.ordered_at)} · </>}
               {part.received_at && <>получена: {formatDate(part.received_at)} · </>}
               {part.installed_at && <>установлена: {formatDate(part.installed_at)}</>}
@@ -214,46 +212,6 @@ function PartLine({ part, onChanged }: { part: PartOverviewRow; onChanged: () =>
         </div>
       )}
       <ErrorText error={setStatus.error} />
-    </div>
-  );
-}
-
-function FileSlotMini({ part, kind, onChanged }: {
-  part: OrderPart; kind: PartFileKind; onChanged: () => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const path = part[`${kind}_path` as const] as string | null;
-  const name = part[`${kind}_name` as const] as string | null;
-
-  const upload = useMutation({ mutationFn: (file: File) => uploadPartFile(part, kind, file), onSuccess: onChanged });
-  const remove = useMutation({ mutationFn: () => removePartFile(part, kind), onSuccess: onChanged });
-  const open = useMutation({
-    mutationFn: () => signedReceiptUrl(path!),
-    onSuccess: (url) => { if (url) window.open(url, "_blank", "noopener"); },
-  });
-
-  return (
-    <div className="flex items-center justify-between gap-2 text-xs">
-      <span className="text-muted">{PART_FILE_LABELS[kind]}</span>
-      <div className="flex items-center gap-2">
-        {path ? (
-          <>
-            <button onClick={() => open.mutate()} className="text-primary hover:underline">{name ?? "файл"} ↗</button>
-            <button onClick={() => remove.mutate()} className="text-muted hover:text-danger" aria-label="Удалить файл">✕</button>
-          </>
-        ) : (
-          <>
-            <input
-              ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f); e.target.value = ""; }}
-            />
-            <Button variant="ghost" className="px-2 py-0.5 text-xs" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-              {upload.isPending ? "Загрузка…" : "+ загрузить"}
-            </Button>
-          </>
-        )}
-      </div>
-      <ErrorText error={upload.error ?? remove.error ?? open.error} />
     </div>
   );
 }
