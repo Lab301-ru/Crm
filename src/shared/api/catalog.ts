@@ -14,6 +14,20 @@ export async function addCategory(name: string): Promise<{ id: string }> {
   return data as { id: string };
 }
 
+/**
+ * Мягкое удаление категории (deleted_at). Существующие заказы/устройства
+ * хранят category_id и не ломаются — категория просто исчезает из списков
+ * и из выбора при новом заказе. Доступно только админу (RLS).
+ */
+export async function deleteCategory(id: string, byUserId: string): Promise<void> {
+  const { error } = await supabase
+    .from("categories")
+    .update({ deleted_at: new Date().toISOString(), deleted_by: byUserId })
+    .eq("id", id);
+  throwIfError(error);
+}
+
+
 export async function searchBrands(q: string): Promise<Brand[]> {
   let query = supabase.from("brands").select("id,name").is("deleted_at", null).limit(10);
   if (q.trim()) query = query.ilike("name_normalized", `%${q.trim().toLowerCase()}%`);
