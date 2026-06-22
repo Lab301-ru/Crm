@@ -1,3 +1,4 @@
+import { useState } from "react";
 import { Link, NavLink, Outlet, useNavigate } from "react-router-dom";
 import { useAuth } from "./AuthProvider";
 import { OfflineBanner } from "./OfflineBanner";
@@ -14,6 +15,12 @@ const navItems = [
   { to: "/settings", label: "Настройки", icon: "M12 15a3 3 0 1 0 0-6 3 3 0 0 0 0 6z M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 1 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 1 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 1 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 1 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" },
 ];
 
+// Нижняя навигация смартфона — 5 ключевых разделов (плюс «Новый заказ»
+// по центру). Остальное (Аналитика, Справочник, Настройки) — в бургере.
+const BOTTOM_LEFT = ["/", "/orders"];
+const BOTTOM_RIGHT = ["/clients", "/parts"];
+const byPath = (to: string) => navItems.find((i) => i.to === to)!;
+
 function NavIcon({ d }: { d: string }) {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
@@ -22,9 +29,13 @@ function NavIcon({ d }: { d: string }) {
   );
 }
 
+const roleLabel = (role?: string) =>
+  role === "admin" ? "Администратор" : role === "manager" ? "Менеджер" : "Мастер";
+
 export function Layout() {
   const { profile, signOut } = useAuth();
   const navigate = useNavigate();
+  const [menuOpen, setMenuOpen] = useState(false);
   // Все сотрудники видят полный набор разделов; ограничения — внутри
   // «Настроек» (вкладки «Организация» и «Сотрудники» — только админу).
   const visibleNav = navItems;
@@ -55,9 +66,7 @@ export function Layout() {
         </nav>
         <div className="border-t border-border p-3">
           <p className="truncate px-2 text-sm">{profile?.full_name}</p>
-          <p className="px-2 pb-2 text-xs text-muted">
-            {profile?.role === "admin" ? "Администратор" : profile?.role === "manager" ? "Менеджер" : "Мастер"}
-          </p>
+          <p className="px-2 pb-2 text-xs text-muted">{roleLabel(profile?.role)}</p>
           <div className="flex items-center gap-2">
             <button
               onClick={() => void signOut()}
@@ -72,16 +81,25 @@ export function Layout() {
 
       {/* Контент */}
       <main className="flex-1 md:ml-56 pb-20 md:pb-6">
-        {/* Мобильная шапка: логотип виден на телефоне (зад. 12) и отступ
-            под вырез/часы статус-бара (зад. 3, safe-area-inset-top) */}
+        {/* Мобильная шапка: логотип слева; справа — смена темы и бургер */}
         <header
-          className="sticky top-0 z-30 flex items-center gap-2 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
+          className="sticky top-0 z-30 flex items-center gap-1 border-b border-border bg-surface/95 px-4 py-3 backdrop-blur md:hidden"
           style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
         >
           <Link to="/" className="block" aria-label="На дашборд">
             <LogoImg className="h-7 w-auto" />
           </Link>
           <ThemeToggle className="ml-auto" />
+          <button
+            type="button"
+            onClick={() => setMenuOpen(true)}
+            aria-label="Меню"
+            className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-muted transition-colors hover:bg-surface-2 hover:text-text"
+          >
+            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+              <path d="M3 6h18M3 12h18M3 18h18" />
+            </svg>
+          </button>
         </header>
         <OfflineBanner />
         <ErrorBoundary>
@@ -89,12 +107,65 @@ export function Layout() {
         </ErrorBoundary>
       </main>
 
-      {/* Нижняя навигация — смартфон */}
+      {/* Выезжающее меню бургера — смартфон */}
+      {menuOpen && (
+        <div className="fixed inset-0 z-50 md:hidden" role="dialog" aria-modal="true">
+          <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setMenuOpen(false)} />
+          <div
+            className="absolute right-0 top-0 flex h-full w-72 max-w-[82%] flex-col border-l border-border bg-surface shadow-2xl"
+            style={{ paddingTop: "calc(env(safe-area-inset-top) + 0.75rem)" }}
+          >
+            <div className="flex items-center justify-between px-4 pb-3">
+              <LogoImg className="h-7 w-auto" />
+              <button
+                type="button"
+                onClick={() => setMenuOpen(false)}
+                aria-label="Закрыть меню"
+                className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-muted hover:bg-surface-2 hover:text-text"
+              >
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M6 6l12 12M18 6L6 18" />
+                </svg>
+              </button>
+            </div>
+
+            <nav className="flex-1 space-y-1 overflow-y-auto px-2">
+              {navItems.map((item) => (
+                <NavLink
+                  key={item.to}
+                  to={item.to}
+                  end={item.to === "/"}
+                  onClick={() => setMenuOpen(false)}
+                  className={({ isActive }) =>
+                    `flex items-center gap-3 rounded-lg px-3 py-3 text-sm transition-colors ${
+                      isActive ? "bg-primary/15 text-primary" : "text-muted hover:bg-surface-2 hover:text-text"
+                    }`
+                  }
+                >
+                  <NavIcon d={item.icon} />
+                  {item.label}
+                </NavLink>
+              ))}
+            </nav>
+
+            <div className="border-t border-border p-4" style={{ paddingBottom: "calc(env(safe-area-inset-bottom) + 1rem)" }}>
+              <p className="truncate text-sm font-medium">{profile?.full_name}</p>
+              <p className="pb-2 text-xs text-muted">{roleLabel(profile?.role)}</p>
+              <button
+                onClick={() => { setMenuOpen(false); void signOut(); }}
+                className="w-full rounded-lg bg-surface-2 px-3 py-2 text-left text-sm text-muted hover:text-text"
+              >
+                Выйти
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Нижняя навигация — смартфон: Дашборд · Заказы · ＋ · Клиенты · Запчасти */}
       <nav className="fixed inset-x-0 bottom-0 z-40 flex border-t border-border bg-surface/95 backdrop-blur md:hidden"
         style={{ paddingBottom: "env(safe-area-inset-bottom)" }}>
-        {navItems.slice(0, 2).map((item) => (
-          <MobileNavLink key={item.to} {...item} />
-        ))}
+        {BOTTOM_LEFT.map((to) => <MobileNavLink key={to} {...byPath(to)} />)}
         <button
           onClick={() => navigate("/orders/new")}
           className="flex flex-1 flex-col items-center justify-center py-2"
@@ -106,10 +177,7 @@ export function Layout() {
             </svg>
           </span>
         </button>
-        {/* Клиенты + Настройки (Справочник доступен ссылкой внутри Настроек) */}
-        {[navItems[2], navItems[4]].map((item) => (
-          <MobileNavLink key={item.to} {...item} />
-        ))}
+        {BOTTOM_RIGHT.map((to) => <MobileNavLink key={to} {...byPath(to)} />)}
       </nav>
     </div>
   );
