@@ -193,8 +193,11 @@ function PartLine({ part, onChanged }: { part: PartOverviewRow; onChanged: () =>
               <option key={s} value={s}>{PART_STATUS_LABELS[s]}</option>
             ))}
           </Select>
-          <button onClick={() => setExpanded(!expanded)} className="text-sm font-medium text-primary hover:underline">
-            {expanded ? "скрыть файлы" : "файлы"}
+          <button
+            onClick={() => setExpanded(!expanded)}
+            className="inline-flex items-center gap-1 rounded-lg border border-border bg-surface-2 px-3 py-1.5 text-sm font-medium text-text transition-colors hover:bg-border"
+          >
+            {expanded ? "Скрыть файлы" : "Файлы"}
           </button>
         </div>
       </div>
