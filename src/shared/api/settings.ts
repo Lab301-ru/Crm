@@ -89,6 +89,8 @@ const DEFAULT_ORG_SETTINGS: OrgSettings = {
   owner_email: null,
   owner_notify_channel: "off",
   owner_notify_events: ["order_accepted", "order_issued"],
+  receipt_signer_name: "Юрий",
+  receipt_signer_signature: "Б.Ю.Г.",
 };
 
 export async function fetchOrgSettings(): Promise<OrgSettings> {

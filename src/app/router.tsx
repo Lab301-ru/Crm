@@ -5,11 +5,13 @@ import { Button, Spinner } from "@/shared/ui";
 import { LoginPage } from "@/features/auth/LoginPage";
 import { ResetPasswordPage } from "@/features/auth/ResetPasswordPage";
 import { DashboardPage } from "@/features/dashboard/DashboardPage";
+import { AnalyticsPage } from "@/features/analytics/AnalyticsPage";
 import { OrdersPage } from "@/features/orders/OrdersPage";
 import { OrderPage } from "@/features/orders/OrderPage";
 import { NewOrderPage } from "@/features/orders/NewOrderPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
 import { CatalogPage } from "@/features/catalog/CatalogPage";
+import { PartsPage } from "@/features/parts/PartsPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
@@ -56,9 +58,11 @@ export const router = createBrowserRouter([
         element: <Layout />,
         children: [
           { path: "/", element: <DashboardPage /> },
+          { path: "/analytics", element: <AnalyticsPage /> },
           { path: "/orders", element: <OrdersPage /> },
           { path: "/orders/new", element: <NewOrderPage /> },
           { path: "/orders/:id", element: <OrderPage /> },
+          { path: "/parts", element: <PartsPage /> },
           { path: "/clients", element: <ClientsPage /> },
           { path: "/catalog", element: <CatalogPage /> },
           { path: "/settings", element: <SettingsPage /> },

@@ -62,34 +62,36 @@ on conflict (id) do nothing;
 
 -- ------------------------------------------------------------
 -- Правила уведомлений: {order_number} {status_label} {due_date}
--- {client_name} {tracking_url} — подставляются при доставке
+-- {client_name} {tracking_url} — подставляются при доставке.
+-- telegram-правила выключены: уведомления владельцу в Telegram шлёт
+-- «личный блок владельца» (Настройки → Уведомления), иначе были бы дубли.
 -- ------------------------------------------------------------
 insert into public.notification_rules (event_type, channel, enabled, template) values
-  ('order_accepted', 'telegram', true,
+  ('order_accepted', 'telegram', false,
    'Заказ {order_number} принят в работу. Следить за статусом: {tracking_url}'),
   ('order_accepted', 'email', true,
    'Здравствуйте, {client_name}! Ваш заказ {order_number} принят в работу. Следить за статусом: {tracking_url}'),
   ('order_accepted', 'phone_call', false, 'Позвонить: заказ {order_number} принят'),
 
-  ('cost_approval', 'telegram', true,
+  ('cost_approval', 'telegram', false,
    'Заказ {order_number}: диагностика завершена, требуется согласование стоимости. Мы свяжемся с вами, либо позвоните нам.'),
   ('cost_approval', 'email', true,
    'Здравствуйте, {client_name}! По заказу {order_number} завершена диагностика — требуется согласование стоимости ремонта.'),
   ('cost_approval', 'phone_call', true, 'Позвонить: согласовать стоимость по заказу {order_number}'),
 
-  ('awaiting_parts', 'telegram', true,
+  ('awaiting_parts', 'telegram', false,
    'Заказ {order_number}: ожидаем поступления запчастей. Плановая готовность: {due_date}.'),
   ('awaiting_parts', 'email', true,
    'Здравствуйте, {client_name}! Заказ {order_number} ожидает запчасти. Плановая готовность: {due_date}.'),
   ('awaiting_parts', 'phone_call', false, 'Позвонить: заказ {order_number} ждёт запчасти'),
 
-  ('order_ready', 'telegram', true,
+  ('order_ready', 'telegram', false,
    'Заказ {order_number} готов! Ждём вас за устройством. {tracking_url}'),
   ('order_ready', 'email', true,
    'Здравствуйте, {client_name}! Ваш заказ {order_number} готов к выдаче.'),
   ('order_ready', 'phone_call', true, 'Позвонить: заказ {order_number} готов к выдаче'),
 
-  ('order_issued', 'telegram', true,
+  ('order_issued', 'telegram', false,
    'Заказ {order_number} выдан. Спасибо, что выбрали нас!'),
   ('order_issued', 'email', true,
    'Здравствуйте, {client_name}! Заказ {order_number} выдан. Спасибо, что выбрали нас!'),
