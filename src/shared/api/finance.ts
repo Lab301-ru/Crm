@@ -1,5 +1,7 @@
 import { supabase, throwIfError } from "./supabase";
-import type { AnalyticsStats, Expense, ExpenseCategory, FinanceOverview } from "./types";
+import type {
+  AnalyticsSeriesPoint, AnalyticsStats, Expense, ExpenseCategory, FinanceOverview,
+} from "./types";
 
 export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
   parts: "Запчасти",
@@ -14,10 +16,16 @@ export const EXPENSE_CATEGORY_LABELS: Record<ExpenseCategory, string> = {
 
 export const EXPENSE_CATEGORIES = Object.keys(EXPENSE_CATEGORY_LABELS) as ExpenseCategory[];
 
-export async function fetchAnalyticsStats(period: "all" | "month"): Promise<AnalyticsStats> {
+export async function fetchAnalyticsStats(period: "all" | "month" | "year"): Promise<AnalyticsStats> {
   const { data, error } = await supabase.rpc("analytics_stats", { p_period: period });
   throwIfError(error);
   return data as AnalyticsStats;
+}
+
+export async function fetchAnalyticsSeries(months = 12): Promise<AnalyticsSeriesPoint[]> {
+  const { data, error } = await supabase.rpc("analytics_series", { p_months: months });
+  throwIfError(error);
+  return (data ?? []) as AnalyticsSeriesPoint[];
 }
 
 export async function fetchFinanceOverview(

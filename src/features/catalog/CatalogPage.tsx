@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { addCategory, fetchCategories, importCatalogBatch, searchModels, type ImportRow } from "@/shared/api/catalog";
+import { addCategory, deleteCategory, fetchCategories, importCatalogBatch, searchModels, type ImportRow } from "@/shared/api/catalog";
 import { useAuth } from "@/app/AuthProvider";
 import { useDebounced } from "@/shared/lib/useDebounced";
 import { Button, Card, EmptyState, ErrorText, Input, Spinner } from "@/shared/ui";
@@ -31,6 +31,13 @@ export function CatalogPage() {
       void queryClient.invalidateQueries({ queryKey: ["categories"] });
     },
   });
+  const delCat = useMutation({
+    mutationFn: (id: string) => deleteCategory(id, profile!.id),
+    onSuccess: (_d, id) => {
+      if (categoryId === id) setCategoryId("");
+      void queryClient.invalidateQueries({ queryKey: ["categories"] });
+    },
+  });
 
   return (
     <div className="space-y-4 p-4">
@@ -43,13 +50,28 @@ export function CatalogPage() {
           ) : (
             <ul className="space-y-1">
               {categories.data?.map((c) => (
-                <li key={c.id}>
+                <li key={c.id} className="flex items-center gap-1">
                   <button
                     onClick={() => setCategoryId(c.id)}
-                    className={`w-full rounded-lg px-3 py-2 text-left text-sm ${categoryId === c.id ? "bg-primary/15 text-primary" : "hover:bg-surface-2"}`}
+                    className={`min-w-0 flex-1 truncate rounded-lg px-3 py-2 text-left text-sm ${categoryId === c.id ? "bg-primary/15 text-primary" : "hover:bg-surface-2"}`}
                   >
                     {c.name}
                   </button>
+                  {isAdmin && (
+                    <button
+                      onClick={() => {
+                        if (confirm(`Удалить категорию «${c.name}»? Существующие заказы не пострадают.`)) {
+                          delCat.mutate(c.id);
+                        }
+                      }}
+                      disabled={delCat.isPending}
+                      className="shrink-0 rounded-lg px-2 py-2 text-muted hover:bg-danger/15 hover:text-danger"
+                      aria-label={`Удалить категорию ${c.name}`}
+                      title="Удалить категорию"
+                    >
+                      ✕
+                    </button>
+                  )}
                 </li>
               ))}
             </ul>
@@ -60,7 +82,8 @@ export function CatalogPage() {
               Добавить
             </Button>
           </div>
-          <ErrorText error={addCat.error} />
+          <ErrorText error={addCat.error ?? delCat.error} />
+          {!isAdmin && <p className="mt-1 text-xs text-muted">Удаление категорий доступно администратору.</p>}
         </Card>
 
         <Card title="Модели">

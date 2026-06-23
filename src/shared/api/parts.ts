@@ -155,3 +155,13 @@ export async function signedReceiptUrl(path: string, expiresIn = 3600): Promise<
   throwIfError(error);
   return data?.signedUrl ?? null;
 }
+
+/** Пакетно подписанные ссылки на файлы запчастей: { path → url }. */
+export async function signedPartFileUrls(paths: string[], expiresIn = 3600): Promise<Record<string, string>> {
+  if (paths.length === 0) return {};
+  const { data, error } = await supabase.storage.from(DOCS_BUCKET).createSignedUrls(paths, expiresIn);
+  throwIfError(error);
+  const map: Record<string, string> = {};
+  for (const d of data ?? []) if (d.path && d.signedUrl) map[d.path] = d.signedUrl;
+  return map;
+}

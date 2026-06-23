@@ -5,11 +5,14 @@ import {
   addOrderItem, changeStatus, deleteOrderItem, fetchOrder, fetchOrderHistory,
   fetchOrderItems, fetchStatuses, fetchTransitions, updateOrder,
 } from "@/shared/api/orders";
-import { fetchClient } from "@/shared/api/clients";
-import { fetchDevice, fetchFieldTemplates } from "@/shared/api/catalog";
+import { fetchClient, updateClient } from "@/shared/api/clients";
+import {
+  fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
+} from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
-import type { Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
-import { formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
+import type { Client, Device, Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
+import { formatDateTime, formatMoney, formatPhone, phoneInput } from "@/shared/lib/format";
+import { useAuth } from "@/app/AuthProvider";
 import { copyText } from "@/shared/lib/clipboard";
 import { clearDraft, useDraftLoad, useDraftSave } from "@/shared/lib/useFormDraft";
 import { Button, Card, ErrorText, Field, Input, Modal, OverdueBadge, Select, Spinner, StatusBadge, Textarea } from "@/shared/ui";
@@ -20,6 +23,10 @@ import { PartsCard } from "./PartsCard";
 export function OrderPage() {
   const { id = "" } = useParams();
   const queryClient = useQueryClient();
+  const { profile } = useAuth();
+  const isManager = profile?.role === "admin" || profile?.role === "manager";
+  const [editClient, setEditClient] = useState(false);
+  const [editDevice, setEditDevice] = useState(false);
 
   const order = useQuery({ queryKey: ["order", id], queryFn: () => fetchOrder(id) });
   const items = useQuery({ queryKey: ["order-items", id], queryFn: () => fetchOrderItems(id) });
@@ -105,7 +112,12 @@ export function OrderPage() {
 
       <div className="grid gap-4 lg:grid-cols-2">
         {/* Клиент */}
-        <Card title="Клиент">
+        <Card
+          title="Клиент"
+          actions={isManager && client.data && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setEditClient(true)}>Изменить</Button>
+          )}
+        >
           {client.data ? (
             <div className="space-y-1 text-sm">
               <p className="font-medium">{client.data.name}</p>
@@ -124,7 +136,12 @@ export function OrderPage() {
         </Card>
 
         {/* Устройство */}
-        <Card title="Устройство">
+        <Card
+          title="Устройство"
+          actions={device.data && (
+            <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setEditDevice(true)}>Изменить</Button>
+          )}
+        >
           {device.data ? (
             <dl className="space-y-1.5 text-sm">
               {device.data.serial_number && <Row k="Серийный №" v={device.data.serial_number} />}
@@ -144,6 +161,22 @@ export function OrderPage() {
           ) : <Spinner />}
         </Card>
       </div>
+
+      {/* Модалки правки клиента/устройства */}
+      {editClient && client.data && (
+        <EditClientModal
+          client={client.data}
+          onClose={() => setEditClient(false)}
+          onSaved={() => { void client.refetch(); setEditClient(false); }}
+        />
+      )}
+      {editDevice && device.data && (
+        <EditDeviceModal
+          device={device.data}
+          onClose={() => setEditDevice(false)}
+          onSaved={() => { void device.refetch(); setEditDevice(false); }}
+        />
+      )}
 
       {/* Неисправность и работа мастера */}
       <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} />
@@ -270,15 +303,16 @@ function DefectCard({ order, profiles, onSaved }: {
   // Черновик диагностики на этот заказ — переживает сворачивание вкладки/навигацию.
   const draftKey = `draft:order-defect:${order.id}`;
   const draft = useDraftLoad<{
-    diagnostic: string; masterComment: string; publicComment: string; masterId: string; dueDate: string;
+    defect: string; diagnostic: string; masterComment: string; publicComment: string; masterId: string; dueDate: string;
   }>(draftKey);
+  const [defect, setDefect] = useState(draft.defect ?? order.claimed_defect ?? "");
   const [diagnostic, setDiagnostic] = useState(draft.diagnostic ?? order.diagnostic_result ?? "");
   const [masterComment, setMasterComment] = useState(draft.masterComment ?? order.master_comment ?? "");
   const [publicComment, setPublicComment] = useState(draft.publicComment ?? order.public_comment ?? "");
   const [masterId, setMasterId] = useState(draft.masterId ?? order.master_id ?? "");
   const [dueDate, setDueDate] = useState(draft.dueDate ?? order.due_date ?? "");
 
-  useDraftSave(draftKey, { diagnostic, masterComment, publicComment, masterId, dueDate });
+  useDraftSave(draftKey, { defect, diagnostic, masterComment, publicComment, masterId, dueDate });
 
   const save = useMutation({
     mutationKey: ["update-order"],
@@ -288,6 +322,7 @@ function DefectCard({ order, profiles, onSaved }: {
   const submitPatch = () => save.mutate({
     orderId: order.id,
     patch: {
+      claimed_defect: defect.trim() || order.claimed_defect,
       diagnostic_result: diagnostic.trim() || null,
       master_comment: masterComment.trim() || null,
       public_comment: publicComment.trim() || null,
@@ -304,10 +339,9 @@ function DefectCard({ order, profiles, onSaved }: {
       actions={<Button variant="secondary" disabled={save.isPending} onClick={submitPatch}>Сохранить</Button>}
     >
       <div className="space-y-3">
-        <div>
-          <p className="text-xs font-medium text-muted">Заявленная неисправность</p>
-          <p className="mt-1 text-sm">{order.claimed_defect}</p>
-        </div>
+        <Field label="Заявленная неисправность">
+          <Textarea value={defect} onChange={(e) => setDefect(e.target.value)} />
+        </Field>
         <Field label="Результат диагностики">
           <Textarea value={diagnostic} onChange={(e) => setDiagnostic(e.target.value)} />
         </Field>
@@ -529,5 +563,189 @@ function PaymentCard({ order, onSaved }: { order: Order; onSaved: () => void }) 
       </div>
       <ErrorText error={save.error} />
     </Card>
+  );
+}
+
+/* ---------------- Правка клиента ---------------- */
+
+function EditClientModal({ client, onClose, onSaved }: {
+  client: Client; onClose: () => void; onSaved: () => void;
+}) {
+  const [name, setName] = useState(client.name);
+  const [phone, setPhone] = useState(formatPhone(client.phone_display ?? client.phone));
+  const [email, setEmail] = useState(client.email ?? "");
+  const [comment, setComment] = useState(client.comment ?? "");
+
+  const save = useMutation({
+    mutationFn: () => updateClient(client.id, {
+      name: name.trim(),
+      phone_display: phone.trim(),
+      email: email.trim() || null,
+      comment: comment.trim() || null,
+    }),
+    onSuccess: onSaved,
+  });
+
+  return (
+    <Modal open onClose={onClose} title="Изменить клиента">
+      <div className="space-y-3">
+        <Field label="Имя" required>
+          <Input value={name} onChange={(e) => setName(e.target.value)} />
+        </Field>
+        <Field label="Телефон" required>
+          <Input value={phone} inputMode="tel" onChange={(e) => setPhone(phoneInput(e.target.value))} />
+        </Field>
+        <Field label="Email">
+          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
+        </Field>
+        <Field label="Комментарий">
+          <Textarea value={comment} onChange={(e) => setComment(e.target.value)} />
+        </Field>
+        <ErrorText error={save.error} />
+        <div className="flex gap-2">
+          <Button className="flex-1" disabled={!name.trim() || !phone.trim() || save.isPending} onClick={() => save.mutate()}>
+            Сохранить
+          </Button>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
+
+/* ---------------- Правка устройства ---------------- */
+
+function EditDeviceModal({ device, onClose, onSaved }: {
+  device: Device; onClose: () => void; onSaved: () => void;
+}) {
+  const [categoryId, setCategoryId] = useState(device.category_id);
+  const [brandId, setBrandId] = useState(device.brand_id);
+  const [modelId, setModelId] = useState<string | null>(device.model_id);
+  const [brandName, setBrandName] = useState("");
+  const [modelName, setModelName] = useState("");
+  const [serial, setSerial] = useState(device.serial_number ?? "");
+  const [completeness, setCompleteness] = useState(device.completeness ?? "");
+  const [appearance, setAppearance] = useState(device.appearance ?? "");
+  const [warranty, setWarranty] = useState(device.is_warranty_case);
+
+  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 60_000 });
+  const brands = useQuery({
+    queryKey: ["brands-search", brandName],
+    queryFn: () => searchBrands(brandName),
+    staleTime: 30_000,
+  });
+  const models = useQuery({
+    queryKey: ["models-search", categoryId, brandId, modelName],
+    queryFn: () => searchModels(categoryId, brandId, modelName),
+    enabled: !!categoryId,
+  });
+
+  // Загрузить текущий бренд/модель в поля поиска при открытии — чтобы было видно, что выбрано
+  useEffect(() => {
+    void (async () => {
+      const b = await searchBrands("");
+      const cur = b.find((x) => x.id === device.brand_id);
+      if (cur) setBrandName(cur.name);
+    })();
+  }, [device.brand_id]);
+
+  const save = useMutation({
+    mutationFn: async () => {
+      // Если бренд введён вручную и не выбран из списка — создаём его и модель через quick_add_model
+      let finalBrandId = brandId;
+      let finalModelId = modelId;
+      const typedBrand = brandName.trim();
+      const typedModel = modelName.trim();
+      const brandMatch = brands.data?.find((b) => b.name.toLowerCase() === typedBrand.toLowerCase());
+      const modelMatch = models.data?.find((m) => m.name.toLowerCase() === typedModel.toLowerCase());
+
+      if (typedBrand && typedModel && (!brandMatch || !modelMatch)) {
+        const added = await quickAddModel(categoryId, typedBrand, typedModel);
+        finalBrandId = added.brand_id;
+        finalModelId = added.model_id;
+      } else if (brandMatch && !modelMatch && typedModel) {
+        const added = await quickAddModel(categoryId, brandMatch.name, typedModel);
+        finalBrandId = added.brand_id;
+        finalModelId = added.model_id;
+      }
+
+      await updateDevice(device.id, {
+        category_id: categoryId,
+        brand_id: finalBrandId,
+        model_id: finalModelId,
+        serial_number: serial.trim() || null,
+        completeness: completeness.trim() || null,
+        appearance: appearance.trim() || null,
+        is_warranty_case: warranty,
+      });
+    },
+    onSuccess: onSaved,
+  });
+
+  return (
+    <Modal open onClose={onClose} title="Изменить устройство">
+      <div className="space-y-3">
+        <Field label="Категория" required>
+          <Select
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setModelId(null);
+              setModelName("");
+            }}
+          >
+            {(categories.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Бренд" required>
+          <Input
+            value={brandName}
+            placeholder="Начните вводить…"
+            onChange={(e) => { setBrandName(e.target.value); setBrandId(""); setModelId(null); }}
+            list="device-brands"
+          />
+          <datalist id="device-brands">
+            {(brands.data ?? []).map((b) => <option key={b.id} value={b.name} />)}
+          </datalist>
+          <p className="mt-1 text-xs text-muted">Если бренда нет в списке — введите своё название, оно добавится.</p>
+        </Field>
+
+        <Field label="Модель">
+          <Input
+            value={modelName}
+            placeholder="Опционально"
+            onChange={(e) => { setModelName(e.target.value); setModelId(null); }}
+            list="device-models"
+          />
+          <datalist id="device-models">
+            {(models.data ?? []).map((m) => <option key={m.id} value={m.name} />)}
+          </datalist>
+        </Field>
+
+        <Field label="Серийный номер">
+          <Input value={serial} onChange={(e) => setSerial(e.target.value)} />
+        </Field>
+        <Field label="Комплектация">
+          <Textarea value={completeness} onChange={(e) => setCompleteness(e.target.value)} />
+        </Field>
+        <Field label="Внешнее состояние">
+          <Textarea value={appearance} onChange={(e) => setAppearance(e.target.value)} />
+        </Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={warranty} onChange={(e) => setWarranty(e.target.checked)} className="h-4 w-4" />
+          Гарантийный случай
+        </label>
+        <ErrorText error={save.error} />
+        <div className="flex gap-2">
+          <Button className="flex-1" disabled={save.isPending || !categoryId || !brandName.trim()} onClick={() => save.mutate()}>
+            {save.isPending ? "Сохранение…" : "Сохранить"}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }

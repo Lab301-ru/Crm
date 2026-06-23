@@ -1,15 +1,14 @@
-import { useRef, useState } from "react";
+import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  createPart, fetchOrderParts, PART_FILE_LABELS, PART_STATUS_COLORS, PART_STATUS_LABELS,
-  PART_STATUSES_ORDER, removePartFile, signedReceiptUrl, softDeletePart, updatePart, uploadPartFile,
+  createPart, fetchOrderParts, PART_STATUS_COLORS, PART_STATUS_LABELS,
+  PART_STATUSES_ORDER, softDeletePart, updatePart,
 } from "@/shared/api/parts";
-import type { OrderPart, PartFileKind, PartStatus } from "@/shared/api/types";
+import type { OrderPart, PartStatus } from "@/shared/api/types";
 import { formatMoney } from "@/shared/lib/format";
 import { useAuth } from "@/app/AuthProvider";
 import { Button, Card, EmptyState, ErrorText, Field, Input, Select, Spinner, Textarea } from "@/shared/ui";
-
-const FILE_KINDS: PartFileKind[] = ["screenshot", "receipt", "invoice"];
+import { PartFiles } from "../parts/PartFiles";
 
 /**
  * Закупка запчастей по заказу: расширенный трекинг — название, кол-во,
@@ -161,71 +160,22 @@ function PartRow({ part, closed, userId, onChanged }: {
           </Select>
         )}
 
-        <button onClick={() => setExpanded(!expanded)} className="text-xs text-primary hover:underline">
+        <button
+          onClick={() => setExpanded(!expanded)}
+          className="inline-flex items-center gap-1 rounded-lg border border-[#f9731666] bg-[#f9731626] px-3 py-1.5 text-sm font-medium text-[#f97316] transition-colors hover:bg-[#f9731640]"
+        >
           {expanded ? "Скрыть файлы" : "Файлы и детали"}
         </button>
       </div>
 
       {expanded && (
-        <div className="mt-3 space-y-2 border-t border-border pt-3">
-          {FILE_KINDS.map((kind) => (
-            <FileSlot key={kind} part={part} kind={kind} closed={closed} onChanged={onChanged} />
-          ))}
+        <div className="mt-3 space-y-3 border-t border-border pt-3">
+          <PartFiles part={part} closed={closed} onChanged={onChanged} />
           {!closed && <PartEdit part={part} onSaved={onChanged} />}
         </div>
       )}
 
       <ErrorText error={setStatus.error ?? remove.error} />
-    </div>
-  );
-}
-
-/* ----------------------------- Слот файла ----------------------------- */
-
-function FileSlot({ part, kind, closed, onChanged }: {
-  part: OrderPart; kind: PartFileKind; closed: boolean; onChanged: () => void;
-}) {
-  const fileRef = useRef<HTMLInputElement>(null);
-  const path = part[`${kind}_path` as const] as string | null;
-  const name = part[`${kind}_name` as const] as string | null;
-
-  const upload = useMutation({
-    mutationFn: (file: File) => uploadPartFile(part, kind, file),
-    onSuccess: onChanged,
-  });
-  const remove = useMutation({
-    mutationFn: () => removePartFile(part, kind),
-    onSuccess: onChanged,
-  });
-  const open = useMutation({
-    mutationFn: () => signedReceiptUrl(path!),
-    onSuccess: (url) => { if (url) window.open(url, "_blank", "noopener"); },
-  });
-
-  return (
-    <div className="flex items-center justify-between gap-2 text-xs">
-      <span className="text-muted">{PART_FILE_LABELS[kind]}</span>
-      <div className="flex items-center gap-2">
-        {path ? (
-          <>
-            <button onClick={() => open.mutate()} className="text-primary hover:underline">{name ?? "файл"} ↗</button>
-            {!closed && (
-              <button onClick={() => remove.mutate()} className="text-muted hover:text-danger" aria-label="Удалить файл">✕</button>
-            )}
-          </>
-        ) : !closed && (
-          <>
-            <input
-              ref={fileRef} type="file" accept="image/*,application/pdf" className="hidden"
-              onChange={(e) => { const f = e.target.files?.[0]; if (f) upload.mutate(f); e.target.value = ""; }}
-            />
-            <Button variant="ghost" className="px-2 py-1 text-xs" disabled={upload.isPending} onClick={() => fileRef.current?.click()}>
-              {upload.isPending ? "Загрузка…" : "+ загрузить"}
-            </Button>
-          </>
-        )}
-      </div>
-      <ErrorText error={upload.error ?? remove.error ?? open.error} />
     </div>
   );
 }

@@ -54,7 +54,7 @@ export function ClientsPage() {
               <div className="flex shrink-0 gap-2">
                 <Link
                   to={`/orders?client=${c.id}`}
-                  className="rounded-lg bg-surface-2 border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
+                  className="rounded-lg border border-[#f9731666] bg-[#f9731626] px-3 py-1.5 text-xs font-medium text-[#f97316] transition-colors hover:bg-[#f9731640]"
                 >
                   Заказы
                 </Link>
