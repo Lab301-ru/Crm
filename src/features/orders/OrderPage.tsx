@@ -6,7 +6,9 @@ import {
   fetchOrderItems, fetchStatuses, fetchTransitions, updateOrder,
 } from "@/shared/api/orders";
 import { fetchClient, updateClient } from "@/shared/api/clients";
-import { fetchDevice, fetchFieldTemplates, updateDevice } from "@/shared/api/catalog";
+import {
+  fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
+} from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, Device, Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
 import { formatDateTime, formatMoney, formatPhone, phoneInput } from "@/shared/lib/format";
@@ -616,24 +618,113 @@ function EditClientModal({ client, onClose, onSaved }: {
 function EditDeviceModal({ device, onClose, onSaved }: {
   device: Device; onClose: () => void; onSaved: () => void;
 }) {
+  const [categoryId, setCategoryId] = useState(device.category_id);
+  const [brandId, setBrandId] = useState(device.brand_id);
+  const [modelId, setModelId] = useState<string | null>(device.model_id);
+  const [brandName, setBrandName] = useState("");
+  const [modelName, setModelName] = useState("");
   const [serial, setSerial] = useState(device.serial_number ?? "");
   const [completeness, setCompleteness] = useState(device.completeness ?? "");
   const [appearance, setAppearance] = useState(device.appearance ?? "");
   const [warranty, setWarranty] = useState(device.is_warranty_case);
 
+  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 60_000 });
+  const brands = useQuery({
+    queryKey: ["brands-search", brandName],
+    queryFn: () => searchBrands(brandName),
+    staleTime: 30_000,
+  });
+  const models = useQuery({
+    queryKey: ["models-search", categoryId, brandId, modelName],
+    queryFn: () => searchModels(categoryId, brandId, modelName),
+    enabled: !!categoryId,
+  });
+
+  // Загрузить текущий бренд/модель в поля поиска при открытии — чтобы было видно, что выбрано
+  useEffect(() => {
+    void (async () => {
+      const b = await searchBrands("");
+      const cur = b.find((x) => x.id === device.brand_id);
+      if (cur) setBrandName(cur.name);
+    })();
+  }, [device.brand_id]);
+
   const save = useMutation({
-    mutationFn: () => updateDevice(device.id, {
-      serial_number: serial.trim() || null,
-      completeness: completeness.trim() || null,
-      appearance: appearance.trim() || null,
-      is_warranty_case: warranty,
-    }),
+    mutationFn: async () => {
+      // Если бренд введён вручную и не выбран из списка — создаём его и модель через quick_add_model
+      let finalBrandId = brandId;
+      let finalModelId = modelId;
+      const typedBrand = brandName.trim();
+      const typedModel = modelName.trim();
+      const brandMatch = brands.data?.find((b) => b.name.toLowerCase() === typedBrand.toLowerCase());
+      const modelMatch = models.data?.find((m) => m.name.toLowerCase() === typedModel.toLowerCase());
+
+      if (typedBrand && typedModel && (!brandMatch || !modelMatch)) {
+        const added = await quickAddModel(categoryId, typedBrand, typedModel);
+        finalBrandId = added.brand_id;
+        finalModelId = added.model_id;
+      } else if (brandMatch && !modelMatch && typedModel) {
+        const added = await quickAddModel(categoryId, brandMatch.name, typedModel);
+        finalBrandId = added.brand_id;
+        finalModelId = added.model_id;
+      }
+
+      await updateDevice(device.id, {
+        category_id: categoryId,
+        brand_id: finalBrandId,
+        model_id: finalModelId,
+        serial_number: serial.trim() || null,
+        completeness: completeness.trim() || null,
+        appearance: appearance.trim() || null,
+        is_warranty_case: warranty,
+      });
+    },
     onSuccess: onSaved,
   });
 
   return (
     <Modal open onClose={onClose} title="Изменить устройство">
       <div className="space-y-3">
+        <Field label="Категория" required>
+          <Select
+            value={categoryId}
+            onChange={(e) => {
+              setCategoryId(e.target.value);
+              setModelId(null);
+              setModelName("");
+            }}
+          >
+            {(categories.data ?? []).map((c) => (
+              <option key={c.id} value={c.id}>{c.name}</option>
+            ))}
+          </Select>
+        </Field>
+
+        <Field label="Бренд" required>
+          <Input
+            value={brandName}
+            placeholder="Начните вводить…"
+            onChange={(e) => { setBrandName(e.target.value); setBrandId(""); setModelId(null); }}
+            list="device-brands"
+          />
+          <datalist id="device-brands">
+            {(brands.data ?? []).map((b) => <option key={b.id} value={b.name} />)}
+          </datalist>
+          <p className="mt-1 text-xs text-muted">Если бренда нет в списке — введите своё название, оно добавится.</p>
+        </Field>
+
+        <Field label="Модель">
+          <Input
+            value={modelName}
+            placeholder="Опционально"
+            onChange={(e) => { setModelName(e.target.value); setModelId(null); }}
+            list="device-models"
+          />
+          <datalist id="device-models">
+            {(models.data ?? []).map((m) => <option key={m.id} value={m.name} />)}
+          </datalist>
+        </Field>
+
         <Field label="Серийный номер">
           <Input value={serial} onChange={(e) => setSerial(e.target.value)} />
         </Field>
@@ -647,10 +738,11 @@ function EditDeviceModal({ device, onClose, onSaved }: {
           <input type="checkbox" checked={warranty} onChange={(e) => setWarranty(e.target.checked)} className="h-4 w-4" />
           Гарантийный случай
         </label>
-        <p className="text-xs text-muted">Категория, бренд и модель меняются при создании заказа — здесь правятся серийник, комплектация и состояние.</p>
         <ErrorText error={save.error} />
         <div className="flex gap-2">
-          <Button className="flex-1" disabled={save.isPending} onClick={() => save.mutate()}>Сохранить</Button>
+          <Button className="flex-1" disabled={save.isPending || !categoryId || !brandName.trim()} onClick={() => save.mutate()}>
+            {save.isPending ? "Сохранение…" : "Сохранить"}
+          </Button>
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
         </div>
       </div>

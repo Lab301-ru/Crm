@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from "react";
-import { Navigate, useParams, useSearchParams } from "react-router-dom";
+import { Navigate, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { useQuery } from "@tanstack/react-query";
 import { DOC_LABELS, getPrintDocument, type DocSnapshot, type DocType } from "@/shared/api/documents";
 import { formatDate, formatDateTime, formatMoney } from "@/shared/lib/format";
@@ -17,6 +17,7 @@ const PAYMENT_METHOD: Record<string, string> = { cash: "наличные", card:
 export function PrintDocumentPage() {
   const { id = "", docType = "" } = useParams();
   const [params] = useSearchParams();
+  const navigate = useNavigate();
   const { profile } = useAuth();
   const printed = useRef(false);
 
@@ -70,7 +71,7 @@ export function PrintDocumentPage() {
     <div className="min-h-dvh bg-neutral-300 py-6 print:bg-white print:py-0">
       <div className="mx-auto mb-4 flex max-w-[210mm] items-center justify-between px-1 print:hidden">
         <button
-          onClick={() => window.history.back()}
+          onClick={() => navigate(`/orders/${id}`)}
           className="rounded-lg bg-neutral-700 px-4 py-2 text-sm text-white hover:bg-neutral-600"
         >
           ← К заказу
