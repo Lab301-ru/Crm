@@ -1,8 +1,9 @@
 import { useState } from "react";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
-  createStockItem, fetchStockItems, sellStockItem, signedStockPhotoUrls, softDeleteStockItem,
-  STOCK_KIND_LABELS, STOCK_KINDS, STOCK_STATUS_COLORS, STOCK_STATUS_LABELS, uploadStockPhoto,
+  cancelReservation, createStockItem, fetchStockItems, reserveStockItem, sellStockItem,
+  signedStockPhotoUrls, softDeleteStockItem, STOCK_KIND_LABELS, STOCK_KINDS,
+  STOCK_STATUS_COLORS, STOCK_STATUS_LABELS, uploadStockPhoto,
 } from "@/shared/api/stock";
 import { searchClients } from "@/shared/api/clients";
 import { useDebounced } from "@/shared/lib/useDebounced";
@@ -161,11 +162,14 @@ function StockCard({ item, photoUrl, isManager, userId, onChanged }: {
   item: StockItem; photoUrl: string | null; isManager: boolean; userId: string; onChanged: () => void;
 }) {
   const [sell, setSell] = useState(false);
+  const [reserve, setReserve] = useState(false);
   const color = STOCK_STATUS_COLORS[item.status];
 
   const upload = useMutation({ mutationFn: (f: File) => uploadStockPhoto(item, f), onSuccess: onChanged });
   const remove = useMutation({ mutationFn: () => softDeleteStockItem(item.id, userId), onSuccess: onChanged });
+  const unreserve = useMutation({ mutationFn: () => cancelReservation(item.id), onSuccess: onChanged });
   const margin = item.price - item.cost_price;
+  const sellable = item.quantity > 0 && item.status !== "sold" && item.status !== "archived";
 
   return (
     <div className="flex flex-col overflow-hidden rounded-xl border border-border bg-surface">
@@ -202,9 +206,29 @@ function StockCard({ item, photoUrl, isManager, userId, onChanged }: {
           )}
         </div>
 
+        {item.status === "reserved" && (item.reserved_name || item.reserved_phone) && (
+          <div className="mt-1 rounded-lg border px-2 py-1 text-xs"
+            style={{ color: STOCK_STATUS_COLORS.reserved, borderColor: `${STOCK_STATUS_COLORS.reserved}66`, backgroundColor: `${STOCK_STATUS_COLORS.reserved}14` }}>
+            Бронь: {item.reserved_name || "—"}{item.reserved_phone ? ` · ${item.reserved_phone}` : ""}
+          </div>
+        )}
+
         <div className="mt-auto flex flex-wrap gap-2 pt-2">
-          {isManager && item.quantity > 0 && item.status !== "sold" && item.status !== "archived" && (
+          {isManager && sellable && (
             <Button className="px-3 py-1.5 text-xs" onClick={() => setSell(true)}>Продать</Button>
+          )}
+          {sellable && item.status === "in_stock" && (
+            <button onClick={() => setReserve(true)}
+              className="rounded-lg border px-3 py-1.5 text-xs font-medium"
+              style={{ color: STOCK_STATUS_COLORS.reserved, borderColor: `${STOCK_STATUS_COLORS.reserved}99`, backgroundColor: `${STOCK_STATUS_COLORS.reserved}1a` }}>
+              Бронь
+            </button>
+          )}
+          {item.status === "reserved" && (
+            <button onClick={() => unreserve.mutate()} disabled={unreserve.isPending}
+              className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-text">
+              {unreserve.isPending ? "…" : "Снять бронь"}
+            </button>
           )}
           {isManager && (
             <button onClick={() => { if (confirm(`Удалить «${item.name}» со склада?`)) remove.mutate(); }}
@@ -213,11 +237,40 @@ function StockCard({ item, photoUrl, isManager, userId, onChanged }: {
             </button>
           )}
         </div>
-        <ErrorText error={upload.error ?? remove.error} />
+        <ErrorText error={upload.error ?? remove.error ?? unreserve.error} />
       </div>
 
+      {reserve && <ReserveModal item={item} onClose={() => setReserve(false)} onDone={() => { setReserve(false); onChanged(); }} />}
       {sell && <SellModal item={item} onClose={() => setSell(false)} onSold={() => { setSell(false); onChanged(); }} />}
     </div>
+  );
+}
+
+/* ----------------------------- Бронь ----------------------------- */
+
+function ReserveModal({ item, onClose, onDone }: { item: StockItem; onClose: () => void; onDone: () => void }) {
+  const [name, setName] = useState(item.reserved_name ?? "");
+  const [phone, setPhone] = useState(item.reserved_phone ?? "");
+
+  const save = useMutation({
+    mutationFn: () => reserveStockItem(item.id, name, phone),
+    onSuccess: onDone,
+  });
+
+  return (
+    <Modal open onClose={onClose} title={`Бронь: ${item.name}`}>
+      <div className="space-y-3">
+        <Field label="Имя покупателя" required><Input value={name} onChange={(e) => setName(e.target.value)} /></Field>
+        <Field label="Телефон"><Input inputMode="tel" placeholder="+7 …" value={phone} onChange={(e) => setPhone(e.target.value)} /></Field>
+        <ErrorText error={save.error} />
+        <div className="flex gap-2">
+          <Button className="flex-1" disabled={save.isPending || !name.trim()} onClick={() => save.mutate()}>
+            {save.isPending ? "Сохранение…" : "Забронировать"}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
 
@@ -226,9 +279,9 @@ function StockCard({ item, photoUrl, isManager, userId, onChanged }: {
 function SellModal({ item, onClose, onSold }: { item: StockItem; onClose: () => void; onSold: () => void }) {
   const [qty, setQty] = useState("1");
   const [price, setPrice] = useState(String(item.price));
-  const [buyerName, setBuyerName] = useState("");
+  const [buyerName, setBuyerName] = useState(item.reserved_name ?? "");
   const [buyerId, setBuyerId] = useState<string | null>(null);
-  const [note, setNote] = useState("");
+  const [note, setNote] = useState(item.reserved_phone ? `Бронь, тел.: ${item.reserved_phone}` : "");
 
   const debouncedBuyer = useDebounced(buyerName, 300);
   const matches = useQuery({
