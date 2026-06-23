@@ -128,6 +128,7 @@ export interface Order {
   payment_status: PaymentStatus;
   payment_method: PaymentMethod | null;
   warranty_days: number | null;
+  outsource_executor: string | null;
   qr_token: string;
   linked_order_id: string | null;
   created_at: string;

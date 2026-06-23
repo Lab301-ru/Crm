@@ -9,10 +9,12 @@
 insert into public.statuses (code, label, color, sort, is_terminal) values
   ('new',               'Не принят',               '#9CA3AF', 10,  false),
   ('accepted',          'Принят',                  '#3B82F6', 20,  false),
+  ('field_order',       'Выездной заказ',          '#0EA5E9', 25,  false),
   ('diagnostics',       'Диагностика',             '#8B5CF6', 30,  false),
   ('awaiting_approval', 'Ожидание согласования',   '#F59E0B', 40,  false),
   ('awaiting_parts',    'Ожидание запчастей',      '#F97316', 50,  false),
   ('in_repair',         'В ремонте',               '#06B6D4', 60,  false),
+  ('outsource',         'Аутсорс',                 '#D946EF', 65,  false),
   ('ready',             'Готов',                   '#22C55E', 70,  false),
   ('issued',            'Выдан',                   '#14B8A6', 80,  true),
   ('declined',          'Отказ',                   '#EF4444', 90,  false),
@@ -44,7 +46,24 @@ insert into public.status_transitions (from_code, to_code) values
   ('ready', 'issued'),
   ('ready', 'in_repair'),              -- возврат на доработку
   ('declined', 'issued'),              -- возврат устройства без ремонта
-  ('declined', 'scrapped')
+  ('declined', 'scrapped'),
+  -- выездной заказ (для выездных мастеров)
+  ('new', 'field_order'),
+  ('accepted', 'field_order'),
+  ('field_order', 'diagnostics'),
+  ('field_order', 'in_repair'),
+  ('field_order', 'ready'),
+  ('field_order', 'issued'),
+  ('field_order', 'declined'),
+  -- аутсорс (ремонт сторонним мастером/сервисом)
+  ('diagnostics', 'outsource'),
+  ('awaiting_approval', 'outsource'),
+  ('awaiting_parts', 'outsource'),
+  ('in_repair', 'outsource'),
+  ('outsource', 'in_repair'),
+  ('outsource', 'awaiting_parts'),
+  ('outsource', 'ready'),
+  ('outsource', 'declined')
 on conflict do nothing;
 
 -- ------------------------------------------------------------

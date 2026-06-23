@@ -40,8 +40,12 @@ export function phoneInput(raw: string): string {
   if (d.startsWith("8")) d = "7" + d.slice(1);
   else if (d.startsWith("9") && d.length <= 10) d = "7" + d;
   if (!d.startsWith("7")) d = "7" + d;
-  d = d.slice(0, 11);
-  const rest = d.slice(1);
+  // Поле предзаполнено «+7 », поэтому первая «7» — код страны. Если после неё
+  // вставили полный номер с национальным префиксом (8…/7…), убираем дубль,
+  // иначе при копировании 11-значного номера терялась последняя цифра.
+  let rest = d.slice(1);
+  while (rest.length > 10 && (rest[0] === "8" || rest[0] === "7")) rest = rest.slice(1);
+  rest = rest.slice(0, 10);
   let out = "+7";
   if (rest.length) out += " " + rest.slice(0, 3);
   if (rest.length > 3) out += " " + rest.slice(3, 6);

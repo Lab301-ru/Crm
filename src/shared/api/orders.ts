@@ -79,9 +79,9 @@ export async function fetchTransitions(): Promise<Transition[]> {
   return (data ?? []) as Transition[];
 }
 
-export async function changeStatus(orderId: string, to: string, comment: string | null): Promise<void> {
+export async function changeStatus(orderId: string, to: string, comment: string | null, executor?: string | null): Promise<void> {
   const { error } = await supabase.rpc("change_status", {
-    p_order_id: orderId, p_to: to, p_comment: comment,
+    p_order_id: orderId, p_to: to, p_comment: comment, p_executor: executor ?? null,
   });
   throwIfError(error);
 }
