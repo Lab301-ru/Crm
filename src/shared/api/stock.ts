@@ -82,6 +82,29 @@ export async function updateStockItem(id: string, patch: Partial<StockItem>): Pr
   throwIfError(error);
 }
 
+/** Поставить бронь: фиксируем, кто забронировал (имя + телефон). */
+export async function reserveStockItem(id: string, name: string, phone: string): Promise<void> {
+  const { error } = await supabase
+    .from("stock_items")
+    .update({
+      status: "reserved",
+      reserved_name: name.trim() || null,
+      reserved_phone: phone.trim() || null,
+      reserved_at: new Date().toISOString(),
+    })
+    .eq("id", id);
+  throwIfError(error);
+}
+
+/** Снять бронь — товар снова в наличии. */
+export async function cancelReservation(id: string): Promise<void> {
+  const { error } = await supabase
+    .from("stock_items")
+    .update({ status: "in_stock", reserved_name: null, reserved_phone: null, reserved_at: null })
+    .eq("id", id);
+  throwIfError(error);
+}
+
 export async function softDeleteStockItem(id: string, byUserId: string): Promise<void> {
   const { error } = await supabase
     .from("stock_items")

@@ -311,6 +311,9 @@ export interface StockItem {
   photo_name: string | null;
   supplier: string | null;
   note: string | null;
+  reserved_name: string | null;
+  reserved_phone: string | null;
+  reserved_at: string | null;
   created_by: string | null;
   created_at: string;
 }
