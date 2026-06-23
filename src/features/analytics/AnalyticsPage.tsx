@@ -210,9 +210,12 @@ function FinanceSection() {
       {overview.isLoading ? <Spinner /> : overview.error ? <ErrorText error={overview.error} /> : overview.data && (
         <div className="mt-4 space-y-4">
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            <Metric label="Выручка" value={formatMoney(overview.data.revenue)} accent="#22C55E" />
+            <Metric label="Выручка (заказы)" value={formatMoney(overview.data.revenue)} accent="#22C55E" />
+            <Metric label="Продажи склада" value={formatMoney(overview.data.stock_revenue)} accent="#14B8A6" />
             <Metric label="Расходы" value={formatMoney(overview.data.expenses)} accent="#EF4444" />
             <Metric label="Чистая прибыль" value={formatMoney(overview.data.net_profit)} accent="#3B82F6" />
+            <Metric label="Прибыль склада" value={formatMoney(overview.data.stock_profit)} accent="#14B8A6" />
+            <Metric label="Общая выручка" value={formatMoney(overview.data.total_revenue)} accent="#22C55E" />
             <Metric label="Маржинальность" value={`${overview.data.margin}%`} accent="#8B5CF6" />
           </div>
 

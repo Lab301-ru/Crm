@@ -12,6 +12,7 @@ import { NewOrderPage } from "@/features/orders/NewOrderPage";
 import { ClientsPage } from "@/features/clients/ClientsPage";
 import { CatalogPage } from "@/features/catalog/CatalogPage";
 import { PartsPage } from "@/features/parts/PartsPage";
+import { StockPage } from "@/features/stock/StockPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
@@ -63,6 +64,7 @@ export const router = createBrowserRouter([
           { path: "/orders/new", element: <NewOrderPage /> },
           { path: "/orders/:id", element: <OrderPage /> },
           { path: "/parts", element: <PartsPage /> },
+          { path: "/stock", element: <StockPage /> },
           { path: "/clients", element: <ClientsPage /> },
           { path: "/catalog", element: <CatalogPage /> },
           { path: "/settings", element: <SettingsPage /> },

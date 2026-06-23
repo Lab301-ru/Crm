@@ -286,10 +286,47 @@ export interface AnalyticsSeriesPoint {
 export interface FinanceOverview {
   period: "today" | "month" | "year" | "all";
   revenue: number;
+  stock_revenue: number;
+  stock_profit: number;
+  total_revenue: number;
   expenses: number;
   net_profit: number;
   margin: number;
   expenses_by_category: Partial<Record<ExpenseCategory, number>>;
+}
+
+export type StockKind = "used_device" | "board" | "part" | "accessory" | "other";
+export type StockStatus = "in_stock" | "reserved" | "sold" | "archived";
+
+export interface StockItem {
+  id: string;
+  name: string;
+  kind: StockKind;
+  description: string | null;
+  quantity: number;
+  cost_price: number;
+  price: number;
+  status: StockStatus;
+  photo_path: string | null;
+  photo_name: string | null;
+  supplier: string | null;
+  note: string | null;
+  created_by: string | null;
+  created_at: string;
+}
+
+export interface StockSale {
+  id: string;
+  item_id: string;
+  qty: number;
+  unit_price: number;
+  total: number;
+  cost_total: number;
+  buyer_client_id: string | null;
+  buyer_name: string | null;
+  sold_by: string | null;
+  sold_at: string;
+  note: string | null;
 }
 
 export interface NotificationRule {
