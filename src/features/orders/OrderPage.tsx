@@ -62,13 +62,14 @@ export function OrderPage() {
     // ключ + переменные (не замыкание): мутация попадает в офлайн-очередь
     // и доотправляется после перезагрузки (defaults в main.tsx)
     mutationKey: ["change-status"],
-    mutationFn: (v: { orderId: string; to: string; comment: string | null }) =>
-      changeStatus(v.orderId, v.to, v.comment),
-    onSuccess: () => { invalidate(); setStatusTarget(null); },
+    mutationFn: (v: { orderId: string; to: string; comment: string | null; executor?: string | null }) =>
+      changeStatus(v.orderId, v.to, v.comment, v.executor),
+    onSuccess: () => { invalidate(); setStatusTarget(null); setStatusExecutor(""); },
   });
 
   const [statusTarget, setStatusTarget] = useState<Status | null>(null);
   const [statusComment, setStatusComment] = useState("");
+  const [statusExecutor, setStatusExecutor] = useState("");
 
   if (order.isLoading) return <Spinner className="pt-20" />;
   if (order.error || !order.data) return <ErrorText error={order.error ?? "Заказ не найден"} />;
@@ -94,13 +95,20 @@ export function OrderPage() {
         <span className="ml-auto text-sm text-muted">принят {formatDateTime(o.accepted_at)}</span>
       </div>
 
+      {o.status === "outsource" && o.outsource_executor && (
+        <div className="rounded-lg border px-3 py-2 text-sm"
+          style={{ color: "#D946EF", borderColor: "#D946EF66", backgroundColor: "#D946EF14" }}>
+          Аутсорс — исполнитель: <b>{o.outsource_executor}</b>
+        </div>
+      )}
+
       {/* Смена статуса */}
       {nextCodes.length > 0 && (
         <div className="flex flex-wrap gap-2">
           {nextCodes.map((s) => (
             <button
               key={s.code}
-              onClick={() => { setStatusTarget(s); setStatusComment(""); }}
+              onClick={() => { setStatusTarget(s); setStatusComment(""); setStatusExecutor(s.code === "outsource" ? (o.outsource_executor ?? "") : ""); }}
               className="rounded-lg border px-3.5 py-2 text-sm font-medium transition-colors hover:opacity-80"
               style={{ color: s.color, backgroundColor: `${s.color}1a`, borderColor: `${s.color}55` }}
             >
@@ -235,6 +243,15 @@ export function OrderPage() {
       {/* Модалка смены статуса */}
       <Modal open={!!statusTarget} onClose={() => setStatusTarget(null)} title={`Перевести в «${statusTarget?.label}»`}>
         <div className="space-y-3">
+          {statusTarget?.code === "outsource" && (
+            <Field label="Исполнитель (организация / мастер)" required>
+              <Input
+                placeholder="Кто чинит на аутсорсе"
+                value={statusExecutor}
+                onChange={(e) => setStatusExecutor(e.target.value)}
+              />
+            </Field>
+          )}
           <Field label="Комментарий (попадёт в историю)">
             <Textarea value={statusComment} onChange={(e) => setStatusComment(e.target.value)} />
           </Field>
@@ -242,8 +259,13 @@ export function OrderPage() {
           <div className="flex gap-2">
             <Button
               className="flex-1"
-              disabled={statusMutation.isPending}
-              onClick={() => statusMutation.mutate({ orderId: id, to: statusTarget!.code, comment: statusComment.trim() || null })}
+              disabled={statusMutation.isPending || (statusTarget?.code === "outsource" && !statusExecutor.trim())}
+              onClick={() => statusMutation.mutate({
+                orderId: id,
+                to: statusTarget!.code,
+                comment: statusComment.trim() || null,
+                executor: statusTarget!.code === "outsource" ? statusExecutor.trim() : null,
+              })}
             >
               Подтвердить
             </Button>
