@@ -70,9 +70,6 @@ begin
   select * into v_order from orders where id = p_order_id and deleted_at is null for update;
   if not found then raise exception 'Заказ не найден'; end if;
 
-  if public.app_role() = 'master' and v_order.master_id is distinct from auth.uid() then
-    raise exception 'Мастер меняет статус только своих заказов';
-  end if;
   if v_order.status = p_to then return; end if;
 
   if not exists (
