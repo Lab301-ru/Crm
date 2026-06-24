@@ -218,6 +218,13 @@ export interface OrgSettings {
   website_admin_url: string | null;
   cctv_url: string | null;
   telephony_url: string | null;
+  map_2gis_url: string | null;
+  map_yandex_url: string | null;
+  messenger_telegram_url: string | null;
+  messenger_whatsapp_url: string | null;
+  invoice_schet_url: string | null;
+  invoice_akt_url: string | null;
+  invoice_kp_url: string | null;
 }
 
 export type PartStatus = "need_order" | "ordered" | "in_transit" | "received" | "installed";

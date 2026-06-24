@@ -147,7 +147,7 @@ function ExternalServicesCard() {
       actions={<Button variant="secondary" disabled={save.isPending || !form} onClick={() => save.mutate()}>Сохранить</Button>}
     >
       <p className="mb-3 text-xs text-muted">
-        Ссылки на внешние сервисы — открываются из боковых разделов «Управление сайтом», «Видеонаблюдение» и «Телефония».
+        Ссылки на внешние сервисы — открываются из одноимённых разделов бокового меню.
       </p>
       <div className="grid grid-cols-1 gap-3">
         <Field label="Адрес админки сайта (Управление сайтом)">
@@ -158,6 +158,39 @@ function ExternalServicesCard() {
         </Field>
         <Field label="Ссылка на телефонию (звонки/записи)">
           <Input placeholder="https://lk.megafon.ru / https://my.mango-office.ru / приложение" value={s.telephony_url ?? ""} onChange={(e) => set("telephony_url", e.target.value || null)} />
+        </Field>
+      </div>
+
+      <p className="mb-2 mt-5 text-sm font-semibold">Карты</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="2ГИС">
+          <Input placeholder="https://2gis.ru/..." value={s.map_2gis_url ?? ""} onChange={(e) => set("map_2gis_url", e.target.value || null)} />
+        </Field>
+        <Field label="Яндекс Карты">
+          <Input placeholder="https://yandex.ru/maps/..." value={s.map_yandex_url ?? ""} onChange={(e) => set("map_yandex_url", e.target.value || null)} />
+        </Field>
+      </div>
+
+      <p className="mb-2 mt-5 text-sm font-semibold">Мессенджеры</p>
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        <Field label="Telegram">
+          <Input placeholder="https://web.telegram.org / https://t.me/..." value={s.messenger_telegram_url ?? ""} onChange={(e) => set("messenger_telegram_url", e.target.value || null)} />
+        </Field>
+        <Field label="WhatsApp">
+          <Input placeholder="https://web.whatsapp.com / https://wa.me/..." value={s.messenger_whatsapp_url ?? ""} onChange={(e) => set("messenger_whatsapp_url", e.target.value || null)} />
+        </Field>
+      </div>
+
+      <p className="mb-2 mt-5 text-sm font-semibold">Счёт онлайн (формы документов)</p>
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Счёт на оплату">
+          <Input value={s.invoice_schet_url ?? ""} onChange={(e) => set("invoice_schet_url", e.target.value || null)} />
+        </Field>
+        <Field label="Акт выполненных работ">
+          <Input value={s.invoice_akt_url ?? ""} onChange={(e) => set("invoice_akt_url", e.target.value || null)} />
+        </Field>
+        <Field label="Коммерческое предложение">
+          <Input value={s.invoice_kp_url ?? ""} onChange={(e) => set("invoice_kp_url", e.target.value || null)} />
         </Field>
       </div>
       <ErrorText error={save.error} />

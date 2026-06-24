@@ -94,6 +94,13 @@ const DEFAULT_ORG_SETTINGS: OrgSettings = {
   website_admin_url: null,
   cctv_url: null,
   telephony_url: null,
+  map_2gis_url: null,
+  map_yandex_url: null,
+  messenger_telegram_url: null,
+  messenger_whatsapp_url: null,
+  invoice_schet_url: "https://service-online.su/forms/buh/schet/",
+  invoice_akt_url: "https://service-online.su/forms/buh/akt_vyipolnennyih_rabot/",
+  invoice_kp_url: "https://service-online.su/forms/buh/kp/",
 };
 
 export async function fetchOrgSettings(): Promise<OrgSettings> {
