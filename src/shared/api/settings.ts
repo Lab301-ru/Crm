@@ -101,6 +101,10 @@ const DEFAULT_ORG_SETTINGS: OrgSettings = {
   invoice_schet_url: "https://service-online.su/forms/buh/schet/",
   invoice_akt_url: "https://service-online.su/forms/buh/akt_vyipolnennyih_rabot/",
   invoice_kp_url: "https://service-online.su/forms/buh/kp/",
+  payment_link_url: "https://www.tinkoff.ru/rm/r_rBdRxFbmge.kJtBBjrvLh/vaVYo35413",
+  sbp_phone: "+79996708772",
+  sbp_name: "Юрий Б.",
+  sbp_bank: "Т-Банк",
 };
 
 export async function fetchOrgSettings(): Promise<OrgSettings> {
