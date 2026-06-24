@@ -225,6 +225,10 @@ export interface OrgSettings {
   invoice_schet_url: string | null;
   invoice_akt_url: string | null;
   invoice_kp_url: string | null;
+  payment_link_url: string | null;
+  sbp_phone: string | null;
+  sbp_name: string | null;
+  sbp_bank: string | null;
 }
 
 export type PartStatus = "need_order" | "ordered" | "in_transit" | "received" | "installed";

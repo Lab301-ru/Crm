@@ -193,6 +193,24 @@ function ExternalServicesCard() {
           <Input value={s.invoice_kp_url ?? ""} onChange={(e) => set("invoice_kp_url", e.target.value || null)} />
         </Field>
       </div>
+
+      <p className="mb-2 mt-5 text-sm font-semibold">Оплата</p>
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Ссылка оплаты (по QR-коду / картой)">
+          <Input placeholder="https://www.tinkoff.ru/rm/..." value={s.payment_link_url ?? ""} onChange={(e) => set("payment_link_url", e.target.value || null)} />
+        </Field>
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
+          <Field label="СБП: телефон">
+            <Input placeholder="+7…" value={s.sbp_phone ?? ""} onChange={(e) => set("sbp_phone", e.target.value || null)} />
+          </Field>
+          <Field label="СБП: получатель">
+            <Input placeholder="Юрий Б." value={s.sbp_name ?? ""} onChange={(e) => set("sbp_name", e.target.value || null)} />
+          </Field>
+          <Field label="СБП: банк">
+            <Input placeholder="Т-Банк" value={s.sbp_bank ?? ""} onChange={(e) => set("sbp_bank", e.target.value || null)} />
+          </Field>
+        </div>
+      </div>
       <ErrorText error={save.error} />
     </Card>
   );
