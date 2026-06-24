@@ -56,7 +56,12 @@ export function SettingsPage() {
         ))}
       </div>
 
-      {tab === "org" && isAdmin && <OrgSettingsCard />}
+      {tab === "org" && isAdmin && (
+        <div className="space-y-4">
+          <OrgSettingsCard />
+          <ExternalServicesCard />
+        </div>
+      )}
       {tab === "fields" && <FieldTemplatesEditor />}
       {tab === "notifications" && <NotificationRulesCard />}
       {tab === "owner" && isAdmin && <OwnerNotificationsCard />}
@@ -110,6 +115,49 @@ function OrgSettingsCard() {
       <div className="mt-3">
         <Field label="Оговорка на квитанции">
           <Textarea value={s.receipt_disclaimer ?? ""} onChange={(e) => set("receipt_disclaimer", e.target.value || null)} />
+        </Field>
+      </div>
+      <ErrorText error={save.error} />
+    </Card>
+  );
+}
+
+/* ---------------- Внешние сервисы ---------------- */
+
+function ExternalServicesCard() {
+  const queryClient = useQueryClient();
+  const settings = useQuery({ queryKey: ["org-settings"], queryFn: fetchOrgSettings });
+  const [form, setForm] = useState<Partial<OrgSettings> | null>(null);
+
+  const save = useMutation({
+    mutationFn: () => updateOrgSettings(form ?? {}),
+    onSuccess: () => { setForm(null); void queryClient.invalidateQueries({ queryKey: ["org-settings"] }); },
+  });
+
+  if (settings.isLoading) return <Spinner />;
+  if (!settings.data) return <ErrorText error={settings.error} />;
+
+  const s = { ...settings.data, ...form };
+  const set = (key: keyof OrgSettings, value: string | null) =>
+    setForm((prev) => ({ ...prev, [key]: value }));
+
+  return (
+    <Card
+      title="Внешние сервисы"
+      actions={<Button variant="secondary" disabled={save.isPending || !form} onClick={() => save.mutate()}>Сохранить</Button>}
+    >
+      <p className="mb-3 text-xs text-muted">
+        Ссылки на внешние сервисы — открываются из боковых разделов «Управление сайтом», «Видеонаблюдение» и «Телефония».
+      </p>
+      <div className="grid grid-cols-1 gap-3">
+        <Field label="Адрес админки сайта (Управление сайтом)">
+          <Input placeholder="https://example.com/wp-admin" value={s.website_admin_url ?? ""} onChange={(e) => set("website_admin_url", e.target.value || null)} />
+        </Field>
+        <Field label="Ссылка на видеонаблюдение">
+          <Input placeholder="https://cctv.example.com" value={s.cctv_url ?? ""} onChange={(e) => set("cctv_url", e.target.value || null)} />
+        </Field>
+        <Field label="Ссылка на телефонию (звонки/записи)">
+          <Input placeholder="https://lk.megafon.ru / https://my.mango-office.ru / приложение" value={s.telephony_url ?? ""} onChange={(e) => set("telephony_url", e.target.value || null)} />
         </Field>
       </div>
       <ErrorText error={save.error} />

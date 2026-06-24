@@ -215,6 +215,9 @@ export interface OrgSettings {
   owner_notify_events: string[];
   receipt_signer_name: string;
   receipt_signer_signature: string;
+  website_admin_url: string | null;
+  cctv_url: string | null;
+  telephony_url: string | null;
 }
 
 export type PartStatus = "need_order" | "ordered" | "in_transit" | "received" | "installed";

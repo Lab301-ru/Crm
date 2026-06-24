@@ -14,6 +14,7 @@ import { CatalogPage } from "@/features/catalog/CatalogPage";
 import { PartsPage } from "@/features/parts/PartsPage";
 import { StockPage } from "@/features/stock/StockPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
+import { CctvPage, TelephonyPage, WebsiteAdminPage } from "@/features/external/ExternalLinkPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -67,6 +68,9 @@ export const router = createBrowserRouter([
           { path: "/stock", element: <StockPage /> },
           { path: "/clients", element: <ClientsPage /> },
           { path: "/catalog", element: <CatalogPage /> },
+          { path: "/website", element: <WebsiteAdminPage /> },
+          { path: "/cctv", element: <CctvPage /> },
+          { path: "/telephony", element: <TelephonyPage /> },
           { path: "/settings", element: <SettingsPage /> },
         ],
       },
