@@ -14,7 +14,7 @@ import { CatalogPage } from "@/features/catalog/CatalogPage";
 import { PartsPage } from "@/features/parts/PartsPage";
 import { StockPage } from "@/features/stock/StockPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
-import { CctvPage, TelephonyPage, WebsiteAdminPage } from "@/features/external/ExternalLinkPage";
+import { CctvPage, InvoicesPage, MapsPage, MessengersPage, TelephonyPage, WebsiteAdminPage } from "@/features/external/ExternalLinkPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -71,6 +71,9 @@ export const router = createBrowserRouter([
           { path: "/website", element: <WebsiteAdminPage /> },
           { path: "/cctv", element: <CctvPage /> },
           { path: "/telephony", element: <TelephonyPage /> },
+          { path: "/maps", element: <MapsPage /> },
+          { path: "/messengers", element: <MessengersPage /> },
+          { path: "/invoices", element: <InvoicesPage /> },
           { path: "/settings", element: <SettingsPage /> },
         ],
       },
