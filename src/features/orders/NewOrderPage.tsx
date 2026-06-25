@@ -322,6 +322,10 @@ export function NewOrderPage() {
 
       {/* ШАГ 2: устройство */}
       <Card title="Устройство">
+        <p className="mb-3 rounded-lg bg-surface-2 px-3 py-2 text-xs text-muted">
+          Если клиент принёс несколько аппаратов — заведите первый здесь, остальные добавьте
+          на странице заказа кнопкой «+ Аппарат». Каждый аппарат выдаётся отдельно своей квитанцией.
+        </p>
         <div className="space-y-3">
           <Field label="Категория (тип устройства)" required>
             <div className="relative">

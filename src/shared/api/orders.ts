@@ -61,6 +61,8 @@ export async function fetchOrderItems(orderId: string): Promise<OrderItem[]> {
   return (data ?? []) as OrderItem[];
 }
 
+export type NewOrderItem = Omit<OrderItem, "id">;
+
 export async function fetchOrderHistory(orderId: string): Promise<HistoryRow[]> {
   const { data, error } = await supabase
     .from("order_status_history").select("*")

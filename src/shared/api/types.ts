@@ -142,11 +142,35 @@ export interface Order {
 export interface OrderItem {
   id: string;
   order_id: string;
+  order_device_id: string | null;
   item_type: "work" | "part";
   name: string;
   price: number;
   qty: number;
   cost_price: number;
+}
+
+export interface OrderDeviceTotals {
+  id: string;
+  order_id: string;
+  device_id: string;
+  position: number;
+  claimed_defect: string | null;
+  diagnostic_result: string | null;
+  master_comment: string | null;
+  warranty_days: number | null;
+  outcome: "issued" | "returned" | null;
+  issued_at: string | null;
+  issued_by: string | null;
+  created_at: string;
+  category_name: string;
+  brand_name: string;
+  model_name: string | null;
+  device_label: string;
+  serial_number: string | null;
+  works_total: number;
+  parts_total: number;
+  grand_total: number;
 }
 
 export type AttachmentKind = "device_photo" | "serial_photo" | "document" | "receipt" | "warranty_doc";
