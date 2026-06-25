@@ -34,6 +34,15 @@ export async function addOrderDevice(orderId: string, device: DevicePayload, def
   return data as string;
 }
 
+/** Правка полей аппарата в заказе (неисправность, гарантия, диагноз, комментарий). */
+export async function updateOrderDevice(
+  orderDeviceId: string,
+  patch: { claimed_defect?: string | null; warranty_days?: number | null; diagnostic_result?: string | null; master_comment?: string | null },
+): Promise<void> {
+  const { error } = await supabase.from("order_devices").update(patch).eq("id", orderDeviceId);
+  throwIfError(error);
+}
+
 /** Выдать (issued) или вернуть без ремонта (returned) аппарат.
  *  Когда все аппараты заказа обработаны — заказ закрывается автоматически. */
 export async function issueOrderDevice(
