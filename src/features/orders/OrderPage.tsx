@@ -681,6 +681,7 @@ const OUTCOME_LABEL: Record<string, string> = { issued: "Выдан", returned: 
 function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
   orderId: string; devices: OrderDeviceTotals[]; orderClosed: boolean; onChanged: () => void;
 }) {
+  const multi = devices.length > 1;
   const [add, setAdd] = useState(false);
   const issue = useMutation({
     mutationFn: (v: { id: string; outcome: "issued" | "returned" }) => issueOrderDevice(v.id, v.outcome),
@@ -730,6 +731,12 @@ function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
                   >
                     Вернуть без ремонта
                   </button>
+                </div>
+              )}
+              {multi && (
+                <div className="mt-2 flex flex-wrap gap-3 border-t border-border pt-2 text-xs">
+                  <Link to={`/orders/${orderId}/print/intake_receipt?device=${d.id}`} target="_blank" className="text-primary hover:underline">🖨 Квитанция</Link>
+                  <Link to={`/orders/${orderId}/print/issue_act?device=${d.id}`} target="_blank" className="text-primary hover:underline">🖨 Акт выдачи</Link>
                 </div>
               )}
             </div>

@@ -90,9 +90,28 @@ async function fetchDocumentById(id: string): Promise<OrderDocument> {
   return data as OrderDocument;
 }
 
-async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnapshot> {
+async function buildSnapshot(orderId: string, docType: DocType, orderDeviceId?: string): Promise<DocSnapshot> {
   const order = await fetchOrder(orderId);
-  const [items, client, org, profiles, deviceRes] = await Promise.all([
+
+  // Для квитанции по конкретному аппарату — берём его устройство, неисправность,
+  // гарантию и только его позиции работ/запчастей.
+  let deviceId = order.device_id;
+  let odDefect: string | null = order.claimed_defect;
+  let odWarranty = order.warranty_days;
+  if (orderDeviceId) {
+    const { data: od, error: odErr } = await supabase
+      .from("order_devices")
+      .select("device_id, claimed_defect, warranty_days")
+      .eq("id", orderDeviceId)
+      .single();
+    throwIfError(odErr);
+    const odRow = od as { device_id: string; claimed_defect: string | null; warranty_days: number | null };
+    deviceId = odRow.device_id;
+    odDefect = odRow.claimed_defect ?? order.claimed_defect;
+    odWarranty = odRow.warranty_days ?? order.warranty_days;
+  }
+
+  const [allItems, client, org, profiles, deviceRes] = await Promise.all([
     fetchOrderItems(orderId),
     fetchClient(order.client_id),
     fetchOrgSettings(),
@@ -100,10 +119,20 @@ async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnap
     supabase
       .from("devices")
       .select("*, categories(name), brands(name), models(name)")
-      .eq("id", order.device_id)
+      .eq("id", deviceId)
       .single(),
   ]);
   throwIfError(deviceRes.error);
+
+  const items = orderDeviceId
+    ? allItems.filter((i) => i.order_device_id === orderDeviceId)
+    : allItems;
+  const worksTotal = items.filter((i) => i.item_type === "work").reduce((s, i) => s + i.price * i.qty, 0);
+  const partsTotal = items.filter((i) => i.item_type === "part").reduce((s, i) => s + i.price * i.qty, 0);
+  // Предоплата — на уровне всего заказа; в квитанции на отдельный аппарат не делим.
+  const prepayment = orderDeviceId ? 0 : order.prepayment;
+  const grandTotal = orderDeviceId ? worksTotal + partsTotal : order.grand_total;
+  const dueAmount = orderDeviceId ? grandTotal - prepayment : order.due_amount;
   const device = deviceRes.data as {
     category_id: string;
     serial_number: string | null;
@@ -137,17 +166,17 @@ async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnap
       status: order.status,
       accepted_at: order.accepted_at,
       due_date: order.due_date,
-      claimed_defect: order.claimed_defect,
+      claimed_defect: odDefect,
       diagnostic_result: order.diagnostic_result,
       public_comment: order.public_comment,
-      prepayment: order.prepayment,
-      works_total: order.works_total,
-      parts_total: order.parts_total,
-      grand_total: order.grand_total,
-      due_amount: order.due_amount,
+      prepayment: prepayment,
+      works_total: worksTotal,
+      parts_total: partsTotal,
+      grand_total: grandTotal,
+      due_amount: dueAmount,
       payment_status: order.payment_status,
       payment_method: order.payment_method,
-      warranty_days: order.warranty_days,
+      warranty_days: odWarranty,
       qr_token: order.qr_token,
     },
     client: {
@@ -185,26 +214,31 @@ async function buildSnapshot(orderId: string, docType: DocType): Promise<DocSnap
 export async function getPrintDocument(
   orderId: string,
   docType: DocType,
-  opts: { docId?: string; refresh?: boolean; createdBy: string },
+  opts: { docId?: string; refresh?: boolean; createdBy: string; orderDeviceId?: string },
 ): Promise<OrderDocument> {
   if (opts.docId) return fetchDocumentById(opts.docId);
 
   if (!opts.refresh) {
-    const { data, error } = await supabase
+    let q = supabase
       .from("order_documents")
       .select("*")
       .eq("order_id", orderId)
       .eq("doc_type", docType)
       .order("created_at", { ascending: false })
       .limit(1);
+    q = opts.orderDeviceId ? q.eq("order_device_id", opts.orderDeviceId) : q.is("order_device_id", null);
+    const { data, error } = await q;
     throwIfError(error);
     if (data && data.length > 0) return data[0] as OrderDocument;
   }
 
-  const snapshot = await buildSnapshot(orderId, docType);
+  const snapshot = await buildSnapshot(orderId, docType, opts.orderDeviceId);
   const { data, error } = await supabase
     .from("order_documents")
-    .insert({ order_id: orderId, doc_type: docType, snapshot, created_by: opts.createdBy })
+    .insert({
+      order_id: orderId, doc_type: docType, snapshot, created_by: opts.createdBy,
+      order_device_id: opts.orderDeviceId ?? null,
+    })
     .select("*")
     .single();
   throwIfError(error);
