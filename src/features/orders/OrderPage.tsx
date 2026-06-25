@@ -935,28 +935,29 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
 
   const save = useMutation({
     mutationFn: async () => {
-      // Если бренд введён вручную и не выбран из списка — создаём его и модель через quick_add_model
       let finalBrandId = brandId;
       let finalModelId = modelId;
       const typedBrand = brandName.trim();
       const typedModel = modelName.trim();
-      const brandMatch = brands.data?.find((b) => b.name.toLowerCase() === typedBrand.toLowerCase());
       const modelMatch = models.data?.find((m) => m.name.toLowerCase() === typedModel.toLowerCase());
 
-      if (typedBrand && typedModel && (!brandMatch || !modelMatch)) {
-        const added = await quickAddModel(categoryId, typedBrand, typedModel);
+      if (typedBrand && !finalBrandId) {
+        // Бренд введён вручную и не выбран из списка — создаём бренд (и модель, если введена).
+        // Без этого при пустой модели в brand_id уходила пустая строка → ошибка uuid.
+        const added = await quickAddModel(categoryId, typedBrand, typedModel || typedBrand);
         finalBrandId = added.brand_id;
-        finalModelId = added.model_id;
-      } else if (brandMatch && !modelMatch && typedModel) {
-        const added = await quickAddModel(categoryId, brandMatch.name, typedModel);
+        finalModelId = typedModel ? added.model_id : null;
+      } else if (finalBrandId && typedModel && !modelMatch) {
+        // Бренд известен, модель введена вручную и её нет в справочнике — создаём модель.
+        const added = await quickAddModel(categoryId, typedBrand || brandName, typedModel);
         finalBrandId = added.brand_id;
         finalModelId = added.model_id;
       }
 
       await updateDevice(device.id, {
         category_id: categoryId,
-        brand_id: finalBrandId,
-        model_id: finalModelId,
+        brand_id: finalBrandId || device.brand_id,
+        model_id: finalModelId || null,
         serial_number: serial.trim() || null,
         completeness: completeness.trim() || null,
         appearance: appearance.trim() || null,

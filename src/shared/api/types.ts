@@ -105,6 +105,8 @@ export interface OrderListRow {
   brand_name: string;
   model_name: string | null;
   device_label: string;
+  devices_label: string;
+  device_count: number;
   serial_number: string | null;
   category_id: string;
   brand_id: string;

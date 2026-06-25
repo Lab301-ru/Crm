@@ -3,6 +3,15 @@ import type { OrderListRow } from "@/shared/api/types";
 import { formatDate, formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { OverdueBadge, StatusBadge } from "@/shared/ui";
 
+/** Метка мульти-заказа (несколько аппаратов одного клиента в одном заказе). */
+function MultiBadge({ count }: { count: number }) {
+  return (
+    <span className="mr-1.5 inline-block rounded-md border border-primary/50 bg-primary/15 px-1.5 py-0.5 align-middle text-[11px] font-semibold text-primary whitespace-nowrap">
+      Мульти · {count}
+    </span>
+  );
+}
+
 /** Таблица на ПК, карточки на телефоне — один компонент. */
 export function OrdersTable({ rows }: { rows: OrderListRow[] }) {
   return (
@@ -31,7 +40,10 @@ export function OrdersTable({ rows }: { rows: OrderListRow[] }) {
                 <p>{row.client_name}</p>
                 <p className="text-xs text-muted">{formatPhone(row.client_phone)}</p>
               </td>
-              <td className="max-w-56 truncate py-2.5 pr-3">{row.device_label}</td>
+              <td className="max-w-56 py-2.5 pr-3">
+                {row.device_count > 1 && <MultiBadge count={row.device_count} />}
+                <span className={row.device_count > 1 ? "" : "block truncate"}>{row.devices_label}</span>
+              </td>
               <td className="py-2.5 pr-3">
                 <StatusBadge label={row.status_label} color={row.status_color} />
                 {row.status_since && (
@@ -64,7 +76,10 @@ export function OrdersTable({ rows }: { rows: OrderListRow[] }) {
                   )}
                 </div>
               </div>
-              <p className="mt-1 truncate text-sm">{row.device_label}</p>
+              <div className="mt-1 text-sm">
+                {row.device_count > 1 && <MultiBadge count={row.device_count} />}
+                <span className={row.device_count > 1 ? "" : "block truncate"}>{row.devices_label}</span>
+              </div>
               <div className="mt-1 flex items-center justify-between text-xs text-muted">
                 <span>{row.client_name}</span>
                 <span className="flex items-center gap-1.5">
