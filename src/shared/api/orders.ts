@@ -5,6 +5,7 @@ import type {
 
 export interface OrderFilters {
   status?: string;
+  statusNotIn?: string[];
   master_id?: string;
   manager_id?: string;
   category_id?: string;
@@ -28,6 +29,7 @@ export async function fetchOrderList(
     .range(page * pageSize, page * pageSize + pageSize - 1);
 
   if (filters.status) q = q.eq("status", filters.status);
+  if (filters.statusNotIn?.length) q = q.not("status", "in", `(${filters.statusNotIn.join(",")})`);
   if (filters.master_id) q = q.eq("master_id", filters.master_id);
   if (filters.manager_id) q = q.eq("manager_id", filters.manager_id);
   if (filters.category_id) q = q.eq("category_id", filters.category_id);

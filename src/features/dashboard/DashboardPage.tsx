@@ -64,9 +64,11 @@ export function DashboardPage() {
   const stats = useQuery({ queryKey: ["dashboard"], queryFn: fetchDashboardStats, refetchInterval: 60_000 });
   const finance = useQuery({ queryKey: ["finance"], queryFn: fetchFinanceStats, refetchInterval: 60_000 });
   const analytics = useQuery({ queryKey: ["analytics"], queryFn: fetchDashboardAnalytics, refetchInterval: 60_000 });
-  const recent = useQuery({
-    queryKey: ["orders", "recent"],
-    queryFn: () => fetchOrderList({}, 0, 10),
+  // «В сервисном центре» — заказы, физически находящиеся в СЦ сейчас.
+  // Исключаем: не принят, выдан, отказ, утиль.
+  const inService = useQuery({
+    queryKey: ["orders", "in-service"],
+    queryFn: () => fetchOrderList({ statusNotIn: ["new", "issued", "declined", "scrapped"] }, 0, 50),
   });
   const phoneTasks = useQuery({
     queryKey: ["phone-tasks"],
@@ -146,13 +148,13 @@ export function DashboardPage() {
         </Card>
       )}
 
-      <Card title="Последние заказы">
-        {recent.isLoading ? (
+      <Card title={`Находятся в сервисном центре${inService.data ? ` · ${inService.data.count}` : ""}`}>
+        {inService.isLoading ? (
           <Spinner />
-        ) : recent.data && recent.data.rows.length > 0 ? (
-          <OrdersTable rows={recent.data.rows} />
+        ) : inService.data && inService.data.rows.length > 0 ? (
+          <OrdersTable rows={inService.data.rows} />
         ) : (
-          <EmptyState text="Заказов пока нет — создайте первый" />
+          <EmptyState text="Сейчас в сервисном центре нет заказов" />
         )}
       </Card>
     </div>
