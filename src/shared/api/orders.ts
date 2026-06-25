@@ -102,6 +102,13 @@ export interface CreateOrderInput {
     claimed_defect: string; prepayment?: number; warranty_days?: number;
     linked_order_id?: string;
     items?: { item_type: "work" | "part"; name: string; price: number; qty?: number }[];
+    // Доп-аппараты того же клиента: заводятся одним заказом (у каждого свой claimed_defect).
+    devices?: Array<{
+      category_id: string; brand_id: string; model_id?: string | null;
+      serial_number?: string | null; completeness?: string | null; appearance?: string | null;
+      is_warranty_case?: boolean; custom_fields?: Record<string, unknown>;
+      claimed_defect?: string; warranty_days?: number | null;
+    }>;
   };
 }
 

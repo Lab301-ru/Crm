@@ -5,7 +5,7 @@ import {
   addOrderItem, changeStatus, deleteOrderItem, fetchOrder, fetchOrderHistory,
   fetchOrderItems, fetchStatuses, fetchTransitions, updateOrder,
 } from "@/shared/api/orders";
-import { addOrderDevice, fetchOrderDevices, issueOrderDevice, type DevicePayload } from "@/shared/api/orderDevices";
+import { addOrderDevice, fetchOrderDevices, issueOrderDevice, updateOrderDevice, type DevicePayload } from "@/shared/api/orderDevices";
 import { fetchClient, updateClient } from "@/shared/api/clients";
 import {
   fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
@@ -683,6 +683,7 @@ function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
 }) {
   const multi = devices.length > 1;
   const [add, setAdd] = useState(false);
+  const [editDevice, setEditDevice] = useState<OrderDeviceTotals | null>(null);
   const issue = useMutation({
     mutationFn: (v: { id: string; outcome: "issued" | "returned" }) => issueOrderDevice(v.id, v.outcome),
     onSuccess: onChanged,
@@ -726,6 +727,12 @@ function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
                     Выдать
                   </Button>
                   <button
+                    onClick={() => setEditDevice(d)}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
+                  >
+                    Изменить
+                  </button>
+                  <button
                     onClick={() => { if (confirm(`Вернуть аппарат №${d.position} без ремонта?`)) issue.mutate({ id: d.id, outcome: "returned" }); }}
                     className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
                   >
@@ -748,8 +755,27 @@ function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
       )}
       <ErrorText error={issue.error} />
       {add && <AddDeviceModal orderId={orderId} onClose={() => setAdd(false)} onAdded={() => { setAdd(false); onChanged(); }} />}
+      {editDevice && (
+        <EditOrderDeviceModal
+          orderDevice={editDevice}
+          onClose={() => setEditDevice(null)}
+          onSaved={() => { setEditDevice(null); onChanged(); }}
+        />
+      )}
     </Card>
   );
+}
+
+/** Правка конкретного аппарата заказа: подгружает устройство и переиспользует
+ *  форму спецификаций, добавляя неисправность и гарантию этого аппарата. */
+function EditOrderDeviceModal({ orderDevice, onClose, onSaved }: {
+  orderDevice: OrderDeviceTotals; onClose: () => void; onSaved: () => void;
+}) {
+  const device = useQuery({ queryKey: ["device", orderDevice.device_id], queryFn: () => fetchDevice(orderDevice.device_id) });
+  if (device.isLoading || !device.data) {
+    return <Modal open onClose={onClose} title="Изменить аппарат"><Spinner /></Modal>;
+  }
+  return <EditDeviceModal device={device.data} orderDevice={orderDevice} onClose={onClose} onSaved={onSaved} />;
 }
 
 function AddDeviceModal({ orderId, onClose, onAdded }: {
@@ -864,8 +890,8 @@ function AddDeviceModal({ orderId, onClose, onAdded }: {
   );
 }
 
-function EditDeviceModal({ device, onClose, onSaved }: {
-  device: Device; onClose: () => void; onSaved: () => void;
+function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
+  device: Device; orderDevice?: OrderDeviceTotals; onClose: () => void; onSaved: () => void;
 }) {
   const [categoryId, setCategoryId] = useState(device.category_id);
   const [brandId, setBrandId] = useState(device.brand_id);
@@ -876,6 +902,8 @@ function EditDeviceModal({ device, onClose, onSaved }: {
   const [completeness, setCompleteness] = useState(device.completeness ?? "");
   const [appearance, setAppearance] = useState(device.appearance ?? "");
   const [warranty, setWarranty] = useState(device.is_warranty_case);
+  const [defect, setDefect] = useState(orderDevice?.claimed_defect ?? "");
+  const [warrantyDays, setWarrantyDays] = useState(orderDevice?.warranty_days != null ? String(orderDevice.warranty_days) : "");
 
   const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 60_000 });
   const brands = useQuery({
@@ -927,6 +955,13 @@ function EditDeviceModal({ device, onClose, onSaved }: {
         appearance: appearance.trim() || null,
         is_warranty_case: warranty,
       });
+      // Если редактируем конкретный аппарат заказа — пишем его неисправность и гарантию.
+      if (orderDevice) {
+        await updateOrderDevice(orderDevice.id, {
+          claimed_defect: defect.trim() || null,
+          warranty_days: warrantyDays.trim() ? Number(warrantyDays) : null,
+        });
+      }
     },
     onSuccess: onSaved,
   });
@@ -987,6 +1022,16 @@ function EditDeviceModal({ device, onClose, onSaved }: {
           <input type="checkbox" checked={warranty} onChange={(e) => setWarranty(e.target.checked)} className="h-4 w-4" />
           Гарантийный случай
         </label>
+        {orderDevice && (
+          <>
+            <Field label="Заявленная неисправность">
+              <Textarea value={defect} onChange={(e) => setDefect(e.target.value)} />
+            </Field>
+            <Field label="Гарантия на ремонт, дней">
+              <Input type="number" inputMode="numeric" min={0} value={warrantyDays} onChange={(e) => setWarrantyDays(e.target.value)} />
+            </Field>
+          </>
+        )}
         <ErrorText error={save.error} />
         <div className="flex gap-2">
           <Button className="flex-1" disabled={save.isPending || !categoryId || !brandName.trim()} onClick={() => save.mutate()}>

@@ -5,11 +5,15 @@ import { createOrder } from "@/shared/api/orders";
 import { searchClients, updateClient } from "@/shared/api/clients";
 import { addCategory, fetchCategories, fetchFieldTemplates, quickAddBrand, quickAddModel, searchBrands, searchModels } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
+import type { DevicePayload } from "@/shared/api/orderDevices";
 import type { Client, FieldTemplate } from "@/shared/api/types";
 import { formatPhone, phoneInput } from "@/shared/lib/format";
 import { useDebounced } from "@/shared/lib/useDebounced";
-import { Button, Card, ErrorText, Field, Input, Select, Textarea } from "@/shared/ui";
+import { Button, Card, ErrorText, Field, Input, Modal, Select, Textarea } from "@/shared/ui";
 import { CustomFieldInput } from "./CustomFieldInput";
+
+/** Доп-аппарат, уже разрешённый в id справочника, для отправки в create_order. */
+interface ExtraDevice { key: string; payload: DevicePayload; label: string }
 
 // Черновик формы приёмки. Хранится в localStorage, чтобы введённое не
 // терялось, когда мобильный браузер выгружает свёрнутую вкладку или при
@@ -36,6 +40,7 @@ interface Draft {
   dueDate: string;
   masterId: string;
   prepayment: string;
+  extraDevices: ExtraDevice[];
 }
 
 /**
@@ -97,12 +102,14 @@ export function NewOrderPage() {
   const [dueDate, setDueDate] = useState(draft.dueDate ?? "");
   const [masterId, setMasterId] = useState(draft.masterId ?? "");
   const [prepayment, setPrepayment] = useState(draft.prepayment ?? "");
+  const [extraDevices, setExtraDevices] = useState<ExtraDevice[]>(draft.extraDevices ?? []);
+  const [addDeviceOpen, setAddDeviceOpen] = useState(false);
 
   // Автосохранение черновика при любом изменении полей.
   const draftJson = JSON.stringify({
     clientQuery, client, clientName, clientEmail, clientTelegram, categoryId, categoryQuery, brandQuery, brandId, modelQuery,
     modelId, serial, completeness, appearance, warrantyCase, customFields,
-    defect, dueDate, masterId, prepayment,
+    defect, dueDate, masterId, prepayment, extraDevices,
   });
   useEffect(() => {
     localStorage.setItem(DRAFT_KEY, draftJson);
@@ -217,6 +224,7 @@ export function NewOrderPage() {
           due_date: dueDate || undefined,
           master_id: masterId || undefined,
           prepayment: prepayment ? Number(prepayment) : 0,
+          devices: extraDevices.length ? extraDevices.map((e) => e.payload) : undefined,
         },
       });
     },
@@ -247,7 +255,7 @@ export function NewOrderPage() {
     setClientQuery("+7 "); setClient(null); setClientName(""); setClientEmail(""); setClientTelegram("");
     setCategoryId(""); setCategoryQuery(""); setBrandQuery(""); setBrandId(""); setModelQuery(""); setModelId("");
     setSerial(""); setCompleteness(""); setAppearance(""); setWarrantyCase(false); setCustomFields({});
-    setDefect(""); setDueDate(""); setMasterId(""); setPrepayment("");
+    setDefect(""); setDueDate(""); setMasterId(""); setPrepayment(""); setExtraDevices([]);
   };
 
   return (
@@ -486,6 +494,41 @@ export function NewOrderPage() {
         </div>
       </Card>
 
+      {/* ШАГ 4: ещё аппараты того же клиента (одним заказом) */}
+      <Card
+        title={`Ещё аппараты${extraDevices.length ? ` · ${extraDevices.length}` : ""}`}
+        actions={(
+          <Button type="button" variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAddDeviceOpen(true)}>
+            + Аппарат
+          </Button>
+        )}
+      >
+        {extraDevices.length === 0 ? (
+          <p className="text-sm text-muted">
+            Если клиент сдаёт несколько аппаратов — добавьте их сюда. Первый (выше) — №1, остальные пойдут №2, №3… в этом же заказе.
+          </p>
+        ) : (
+          <div className="space-y-2">
+            {extraDevices.map((e, i) => (
+              <div key={e.key} className="flex items-start justify-between gap-2 rounded-lg border border-border p-2.5">
+                <div className="text-sm">
+                  <p className="font-medium">№{i + 2} · {e.label}</p>
+                  {e.payload.serial_number && <p className="text-xs text-muted">сер. № {e.payload.serial_number}</p>}
+                  {e.payload.claimed_defect && <p className="text-xs text-muted">неисправность: {e.payload.claimed_defect}</p>}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setExtraDevices((prev) => prev.filter((x) => x.key !== e.key))}
+                  className="rounded-lg border border-border px-2.5 py-1 text-xs text-muted hover:text-danger"
+                >
+                  Убрать
+                </button>
+              </div>
+            ))}
+          </div>
+        )}
+      </Card>
+
       <ErrorText error={submit.error} />
       <div className="space-y-2">
         <Button type="submit" className="w-full py-3 text-base" disabled={!canSubmit || submit.isPending}>
@@ -502,6 +545,131 @@ export function NewOrderPage() {
           {submit.isPending && submit.variables === "new" ? "Создаём…" : "Предзапись (клиент ещё не пришёл)"}
         </Button>
       </div>
+
+      {addDeviceOpen && (
+        <ExtraDeviceModal
+          onClose={() => setAddDeviceOpen(false)}
+          onAdded={(d) => { setExtraDevices((prev) => [...prev, d]); setAddDeviceOpen(false); }}
+        />
+      )}
     </form>
+  );
+}
+
+/** Сбор доп-аппарата на экране приёмки: бренд/модель разрешаются в id
+ *  справочника сразу (как в карточке заказа), наружу отдаётся готовый payload. */
+function ExtraDeviceModal({ onClose, onAdded }: {
+  onClose: () => void; onAdded: (d: ExtraDevice) => void;
+}) {
+  const [categoryId, setCategoryId] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [modelId, setModelId] = useState<string | null>(null);
+  const [modelName, setModelName] = useState("");
+  const [serial, setSerial] = useState("");
+  const [completeness, setCompleteness] = useState("");
+  const [appearance, setAppearance] = useState("");
+  const [warranty, setWarranty] = useState(false);
+  const [defect, setDefect] = useState("");
+
+  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 300_000 });
+  const brands = useQuery({ queryKey: ["brands-search", brandName], queryFn: () => searchBrands(brandName), staleTime: 30_000 });
+  const models = useQuery({
+    queryKey: ["models-search", categoryId, brandId, modelName],
+    queryFn: () => searchModels(categoryId, brandId, modelName),
+    enabled: !!categoryId && !!brandId,
+  });
+
+  const catName = (categories.data ?? []).find((c) => c.id === categoryId)?.name ?? "";
+
+  const save = useMutation({
+    mutationFn: async (): Promise<ExtraDevice> => {
+      let finalBrandId = brandId;
+      let finalModelId = modelId;
+      const typedBrand = brandName.trim();
+      const typedModel = modelName.trim();
+      if (typedBrand && !finalBrandId) {
+        const r = await quickAddModel(categoryId, typedBrand, typedModel || typedBrand);
+        finalBrandId = r.brand_id;
+        finalModelId = typedModel ? r.model_id : null;
+      }
+      const payload: DevicePayload = {
+        category_id: categoryId,
+        brand_id: finalBrandId,
+        model_id: finalModelId,
+        serial_number: serial.trim() || null,
+        completeness: completeness.trim() || null,
+        appearance: appearance.trim() || null,
+        is_warranty_case: warranty,
+        claimed_defect: defect.trim(),
+      };
+      const label = [catName, typedBrand, typedModel].filter(Boolean).join(" ");
+      return { key: crypto.randomUUID(), payload, label };
+    },
+    onSuccess: (d) => onAdded(d),
+  });
+
+  const canSave = !!categoryId && (!!brandId || !!brandName.trim()) && !!defect.trim();
+
+  return (
+    <Modal open onClose={onClose} title="Добавить аппарат">
+      <div className="space-y-3">
+        <Field label="Категория" required>
+          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">— выберите —</option>
+            {(categories.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Бренд" required>
+          <Input
+            placeholder="Начните вводить…"
+            value={brandName}
+            onChange={(e) => { setBrandName(e.target.value); setBrandId(""); setModelId(null); }}
+          />
+          {brandName.trim() && !brandId && (brands.data ?? []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(brands.data ?? []).slice(0, 6).map((b) => (
+                <button type="button" key={b.id} onClick={() => { setBrandId(b.id); setBrandName(b.name); }}
+                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-2">{b.name}</button>
+              ))}
+            </div>
+          )}
+        </Field>
+        <Field label="Модель">
+          <Input
+            placeholder="Модель (необязательно)"
+            value={modelName}
+            onChange={(e) => { setModelName(e.target.value); setModelId(null); }}
+          />
+          {categoryId && brandId && modelName.trim() && !modelId && (models.data ?? []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(models.data ?? []).slice(0, 6).map((m) => (
+                <button type="button" key={m.id} onClick={() => { setModelId(m.id); setModelName(m.name); }}
+                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-2">{m.name}</button>
+              ))}
+            </div>
+          )}
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Серийный №"><Input value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
+          <Field label="Комплектация"><Input value={completeness} onChange={(e) => setCompleteness(e.target.value)} /></Field>
+        </div>
+        <Field label="Внешнее состояние"><Input value={appearance} onChange={(e) => setAppearance(e.target.value)} /></Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={warranty} onChange={(e) => setWarranty(e.target.checked)} className="h-4 w-4 accent-primary" />
+          Гарантийный случай
+        </label>
+        <Field label="Заявленная неисправность" required>
+          <Textarea value={defect} onChange={(e) => setDefect(e.target.value)} />
+        </Field>
+        <ErrorText error={save.error} />
+        <div className="flex gap-2">
+          <Button type="button" className="flex-1" disabled={!canSave || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending ? "Добавление…" : "Добавить аппарат"}
+          </Button>
+          <Button type="button" variant="secondary" onClick={onClose}>Отмена</Button>
+        </div>
+      </div>
+    </Modal>
   );
 }
