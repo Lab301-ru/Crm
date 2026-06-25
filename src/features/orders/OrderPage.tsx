@@ -5,12 +5,13 @@ import {
   addOrderItem, changeStatus, deleteOrderItem, fetchOrder, fetchOrderHistory,
   fetchOrderItems, fetchStatuses, fetchTransitions, updateOrder,
 } from "@/shared/api/orders";
+import { addOrderDevice, fetchOrderDevices, issueOrderDevice, type DevicePayload } from "@/shared/api/orderDevices";
 import { fetchClient, updateClient } from "@/shared/api/clients";
 import {
   fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
 } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
-import type { Client, Device, Order, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
+import type { Client, Device, Order, OrderDeviceTotals, OrderItem, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
 import { formatDateTime, formatMoney, formatPhone, phoneInput } from "@/shared/lib/format";
 import { useAuth } from "@/app/AuthProvider";
 import { copyText } from "@/shared/lib/clipboard";
@@ -44,6 +45,10 @@ export function OrderPage() {
     queryFn: () => fetchDevice(order.data!.device_id),
     enabled: !!order.data,
   });
+  const orderDevices = useQuery({
+    queryKey: ["order-devices", id],
+    queryFn: () => fetchOrderDevices(id),
+  });
   const templates = useQuery({
     queryKey: ["field-templates", device.data?.category_id],
     queryFn: () => fetchFieldTemplates(device.data!.category_id),
@@ -53,6 +58,7 @@ export function OrderPage() {
   const invalidate = () => {
     void queryClient.invalidateQueries({ queryKey: ["order", id] });
     void queryClient.invalidateQueries({ queryKey: ["order-items", id] });
+    void queryClient.invalidateQueries({ queryKey: ["order-devices", id] });
     void queryClient.invalidateQueries({ queryKey: ["order-history", id] });
     void queryClient.invalidateQueries({ queryKey: ["orders"] });
     void queryClient.invalidateQueries({ queryKey: ["dashboard"] });
@@ -75,10 +81,15 @@ export function OrderPage() {
   if (order.error || !order.data) return <ErrorText error={order.error ?? "Заказ не найден"} />;
 
   const o = order.data;
+  const devices = orderDevices.data ?? [];
+  const multiDevice = devices.length > 1;
+  const closed = ["issued", "scrapped"].includes(o.status);
   const statusByCode = new Map((statuses.data ?? []).map((s) => [s.code, s]));
   const current = statusByCode.get(o.status);
+  // «Выдан» исключаем из ручных переходов — выдача идёт поаппаратно
+  // (issue_order_device закрывает заказ, когда все аппараты отданы).
   const nextCodes = (transitions.data ?? [])
-    .filter((t) => t.from_code === o.status)
+    .filter((t) => t.from_code === o.status && t.to_code !== "issued")
     .map((t) => statusByCode.get(t.to_code))
     .filter((s): s is Status => !!s)
     .sort((a, b) => a.sort - b.sort);
@@ -143,9 +154,9 @@ export function OrderPage() {
           ) : <Spinner />}
         </Card>
 
-        {/* Устройство */}
+        {/* Устройство (основной аппарат; полный список — в карточке «Аппараты и выдача») */}
         <Card
-          title="Устройство"
+          title={multiDevice ? "Устройство №1" : "Устройство"}
           actions={device.data && (
             <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setEditDevice(true)}>Изменить</Button>
           )}
@@ -186,6 +197,14 @@ export function OrderPage() {
         />
       )}
 
+      {/* Аппараты и выдача */}
+      <DevicesCard
+        orderId={id}
+        devices={devices}
+        orderClosed={closed}
+        onChanged={invalidate}
+      />
+
       {/* Неисправность и работа мастера */}
       <DefectCard order={o} profiles={profiles.data ?? []} onSaved={invalidate} />
 
@@ -193,7 +212,7 @@ export function OrderPage() {
       <PhotosCard orderId={id} closed={["issued", "scrapped"].includes(o.status)} />
 
       {/* Работы и запчасти */}
-      <ItemsCard orderId={id} items={items.data ?? []} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
+      <ItemsCard orderId={id} items={items.data ?? []} devices={devices} totals={o} onChanged={invalidate} closed={["issued", "scrapped"].includes(o.status)} />
 
       {/* Закупка запчастей */}
       <PartsCard orderId={id} closed={["issued", "scrapped"].includes(o.status)} />
@@ -394,22 +413,32 @@ function DefectCard({ order, profiles, onSaved }: {
 
 /* ---------------- Работы и запчасти ---------------- */
 
-function ItemsCard({ orderId, items, totals, onChanged, closed }: {
+function ItemsCard({ orderId, items, devices, totals, onChanged, closed }: {
   orderId: string;
-  items: { id: string; item_type: "work" | "part"; name: string; price: number; qty: number }[];
+  items: OrderItem[];
+  devices: OrderDeviceTotals[];
   totals: Order;
   onChanged: () => void;
   closed: boolean;
 }) {
+  const multi = devices.length > 1;
   const [type, setType] = useState<"work" | "part">("work");
   const [name, setName] = useState("");
   const [price, setPrice] = useState("");
   const [cost, setCost] = useState("");
   const [qty, setQty] = useState("1");
+  const [deviceId, setDeviceId] = useState<string>(devices[0]?.id ?? "");
+
+  const targetDevice = deviceId || devices[0]?.id || null;
+  const deviceLabel = (odId: string | null) => {
+    const d = devices.find((x) => x.id === odId);
+    return d ? `№${d.position} · ${d.device_label}` : "—";
+  };
 
   const add = useMutation({
     mutationFn: () => addOrderItem({
-      order_id: orderId, item_type: type, name: name.trim(), price: Number(price), qty: Number(qty) || 1,
+      order_id: orderId, order_device_id: targetDevice, item_type: type,
+      name: name.trim(), price: Number(price), qty: Number(qty) || 1,
       // закупочная цена учитывается только у запчастей (для работ = 0)
       cost_price: type === "part" ? Number(cost) || 0 : 0,
     }),
@@ -425,7 +454,10 @@ function ItemsCard({ orderId, items, totals, onChanged, closed }: {
             {items.map((item) => (
               <tr key={item.id}>
                 <td className="py-2 pr-2 text-xs text-muted w-16">{item.item_type === "work" ? "Работа" : "Запчасть"}</td>
-                <td className="py-2 pr-2">{item.name}</td>
+                <td className="py-2 pr-2">
+                  {item.name}
+                  {multi && <span className="block text-xs text-muted">{deviceLabel(item.order_device_id)}</span>}
+                </td>
                 <td className="py-2 pr-2 text-right whitespace-nowrap">
                   {item.qty !== 1 && <span className="text-xs text-muted">{item.qty} × </span>}
                   {formatMoney(item.price)}
@@ -443,6 +475,11 @@ function ItemsCard({ orderId, items, totals, onChanged, closed }: {
 
       {!closed && (
         <div className="flex flex-wrap items-end gap-2">
+          {multi && (
+            <Select value={targetDevice ?? ""} onChange={(e) => setDeviceId(e.target.value)} className="w-full sm:w-56">
+              {devices.map((d) => <option key={d.id} value={d.id}>№{d.position} · {d.device_label}</option>)}
+            </Select>
+          )}
           <Select value={type} onChange={(e) => setType(e.target.value as "work" | "part")} className="w-32">
             <option value="work">Работа</option>
             <option value="part">Запчасть</option>
@@ -636,6 +673,196 @@ function EditClientModal({ client, onClose, onSaved }: {
 }
 
 /* ---------------- Правка устройства ---------------- */
+
+/* ----------------------- Аппараты и выдача ----------------------- */
+
+const OUTCOME_LABEL: Record<string, string> = { issued: "Выдан", returned: "Возврат без ремонта" };
+
+function DevicesCard({ orderId, devices, orderClosed, onChanged }: {
+  orderId: string; devices: OrderDeviceTotals[]; orderClosed: boolean; onChanged: () => void;
+}) {
+  const multi = devices.length > 1;
+  const [add, setAdd] = useState(false);
+  const issue = useMutation({
+    mutationFn: (v: { id: string; outcome: "issued" | "returned" }) => issueOrderDevice(v.id, v.outcome),
+    onSuccess: onChanged,
+  });
+
+  return (
+    <Card
+      title={`Аппараты и выдача${devices.length ? ` · ${devices.length}` : ""}`}
+      actions={!orderClosed && (
+        <Button variant="secondary" className="px-3 py-1.5 text-xs" onClick={() => setAdd(true)}>+ Аппарат</Button>
+      )}
+    >
+      {devices.length === 0 ? (
+        <Spinner />
+      ) : (
+        <div className="space-y-2">
+          {devices.map((d) => (
+            <div key={d.id} className="rounded-xl border border-border p-3">
+              <div className="flex flex-wrap items-start justify-between gap-2">
+                <div>
+                  <p className="font-medium">№{d.position} · {d.device_label}</p>
+                  {d.serial_number && <p className="text-xs text-muted">сер. № {d.serial_number}</p>}
+                  {d.claimed_defect && <p className="text-xs text-muted">неисправность: {d.claimed_defect}</p>}
+                </div>
+                <div className="text-right">
+                  <p className="font-semibold">{formatMoney(d.grand_total)}</p>
+                  {d.outcome && (
+                    <span className="text-xs font-medium" style={{ color: d.outcome === "issued" ? "#14B8A6" : "#EF4444" }}>
+                      {OUTCOME_LABEL[d.outcome]}{d.issued_at ? ` · ${formatDateTime(d.issued_at)}` : ""}
+                    </span>
+                  )}
+                </div>
+              </div>
+              {!orderClosed && !d.outcome && (
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <Button
+                    className="px-3 py-1.5 text-xs"
+                    disabled={issue.isPending}
+                    onClick={() => { if (confirm(`Выдать аппарат №${d.position} клиенту?`)) issue.mutate({ id: d.id, outcome: "issued" }); }}
+                  >
+                    Выдать
+                  </Button>
+                  <button
+                    onClick={() => { if (confirm(`Вернуть аппарат №${d.position} без ремонта?`)) issue.mutate({ id: d.id, outcome: "returned" }); }}
+                    className="rounded-lg border border-border px-3 py-1.5 text-xs text-muted hover:text-text"
+                  >
+                    Вернуть без ремонта
+                  </button>
+                </div>
+              )}
+              {multi && (
+                <div className="mt-2 flex flex-wrap gap-3 border-t border-border pt-2 text-xs">
+                  <Link to={`/orders/${orderId}/print/intake_receipt?device=${d.id}`} target="_blank" className="text-primary hover:underline">🖨 Квитанция</Link>
+                  <Link to={`/orders/${orderId}/print/issue_act?device=${d.id}`} target="_blank" className="text-primary hover:underline">🖨 Акт выдачи</Link>
+                </div>
+              )}
+            </div>
+          ))}
+          <p className="text-xs text-muted">
+            Заказ закрывается автоматически, когда все аппараты выданы или возвращены.
+          </p>
+        </div>
+      )}
+      <ErrorText error={issue.error} />
+      {add && <AddDeviceModal orderId={orderId} onClose={() => setAdd(false)} onAdded={() => { setAdd(false); onChanged(); }} />}
+    </Card>
+  );
+}
+
+function AddDeviceModal({ orderId, onClose, onAdded }: {
+  orderId: string; onClose: () => void; onAdded: () => void;
+}) {
+  const [categoryId, setCategoryId] = useState("");
+  const [brandId, setBrandId] = useState("");
+  const [brandName, setBrandName] = useState("");
+  const [modelId, setModelId] = useState<string | null>(null);
+  const [modelName, setModelName] = useState("");
+  const [serial, setSerial] = useState("");
+  const [completeness, setCompleteness] = useState("");
+  const [appearance, setAppearance] = useState("");
+  const [warranty, setWarranty] = useState(false);
+  const [defect, setDefect] = useState("");
+
+  const categories = useQuery({ queryKey: ["categories"], queryFn: fetchCategories, staleTime: 60_000 });
+  const brands = useQuery({ queryKey: ["brands-search", brandName], queryFn: () => searchBrands(brandName), staleTime: 30_000 });
+  const models = useQuery({
+    queryKey: ["models-search", categoryId, brandId, modelName],
+    queryFn: () => searchModels(categoryId, brandId, modelName),
+    enabled: !!categoryId && !!brandId,
+  });
+
+  const save = useMutation({
+    mutationFn: async () => {
+      let finalBrandId = brandId;
+      let finalModelId = modelId;
+      const typedBrand = brandName.trim();
+      const typedModel = modelName.trim();
+      if (typedBrand && !finalBrandId) {
+        const r = await quickAddModel(categoryId, typedBrand, typedModel || typedBrand);
+        finalBrandId = r.brand_id;
+        finalModelId = typedModel ? r.model_id : null;
+      }
+      const device: DevicePayload = {
+        category_id: categoryId,
+        brand_id: finalBrandId,
+        model_id: finalModelId,
+        serial_number: serial.trim() || null,
+        completeness: completeness.trim() || null,
+        appearance: appearance.trim() || null,
+        is_warranty_case: warranty,
+      };
+      return addOrderDevice(orderId, device, defect.trim());
+    },
+    onSuccess: onAdded,
+  });
+
+  const canSave = !!categoryId && (!!brandId || !!brandName.trim()) && !!defect.trim();
+
+  return (
+    <Modal open onClose={onClose} title="Добавить аппарат в заказ">
+      <div className="space-y-3">
+        <Field label="Категория" required>
+          <Select value={categoryId} onChange={(e) => setCategoryId(e.target.value)}>
+            <option value="">— выберите —</option>
+            {(categories.data ?? []).map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
+          </Select>
+        </Field>
+        <Field label="Бренд" required>
+          <Input
+            placeholder="Начните вводить…"
+            value={brandName}
+            onChange={(e) => { setBrandName(e.target.value); setBrandId(""); setModelId(null); }}
+          />
+          {brandName.trim() && !brandId && (brands.data ?? []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(brands.data ?? []).slice(0, 6).map((b) => (
+                <button key={b.id} onClick={() => { setBrandId(b.id); setBrandName(b.name); }}
+                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-2">{b.name}</button>
+              ))}
+            </div>
+          )}
+        </Field>
+        <Field label="Модель">
+          <Input
+            placeholder="Модель (необязательно)"
+            value={modelName}
+            onChange={(e) => { setModelName(e.target.value); setModelId(null); }}
+          />
+          {categoryId && brandId && modelName.trim() && !modelId && (models.data ?? []).length > 0 && (
+            <div className="mt-1 flex flex-wrap gap-1">
+              {(models.data ?? []).slice(0, 6).map((m) => (
+                <button key={m.id} onClick={() => { setModelId(m.id); setModelName(m.name); }}
+                  className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-2">{m.name}</button>
+              ))}
+            </div>
+          )}
+        </Field>
+        <div className="grid grid-cols-2 gap-3">
+          <Field label="Серийный №"><Input value={serial} onChange={(e) => setSerial(e.target.value)} /></Field>
+          <Field label="Комплектация"><Input value={completeness} onChange={(e) => setCompleteness(e.target.value)} /></Field>
+        </div>
+        <Field label="Внешнее состояние"><Input value={appearance} onChange={(e) => setAppearance(e.target.value)} /></Field>
+        <label className="flex items-center gap-2 text-sm">
+          <input type="checkbox" checked={warranty} onChange={(e) => setWarranty(e.target.checked)} />
+          Гарантийный случай
+        </label>
+        <Field label="Неисправность со слов клиента" required>
+          <Textarea value={defect} onChange={(e) => setDefect(e.target.value)} />
+        </Field>
+        <ErrorText error={save.error} />
+        <div className="flex gap-2">
+          <Button className="flex-1" disabled={!canSave || save.isPending} onClick={() => save.mutate()}>
+            {save.isPending ? "Добавление…" : "Добавить аппарат"}
+          </Button>
+          <Button variant="secondary" onClick={onClose}>Отмена</Button>
+        </div>
+      </div>
+    </Modal>
+  );
+}
 
 function EditDeviceModal({ device, onClose, onSaved }: {
   device: Device; onClose: () => void; onSaved: () => void;

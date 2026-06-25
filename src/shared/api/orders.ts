@@ -5,6 +5,7 @@ import type {
 
 export interface OrderFilters {
   status?: string;
+  statusNotIn?: string[];
   master_id?: string;
   manager_id?: string;
   category_id?: string;
@@ -28,6 +29,7 @@ export async function fetchOrderList(
     .range(page * pageSize, page * pageSize + pageSize - 1);
 
   if (filters.status) q = q.eq("status", filters.status);
+  if (filters.statusNotIn?.length) q = q.not("status", "in", `(${filters.statusNotIn.join(",")})`);
   if (filters.master_id) q = q.eq("master_id", filters.master_id);
   if (filters.manager_id) q = q.eq("manager_id", filters.manager_id);
   if (filters.category_id) q = q.eq("category_id", filters.category_id);
@@ -58,6 +60,8 @@ export async function fetchOrderItems(orderId: string): Promise<OrderItem[]> {
   throwIfError(error);
   return (data ?? []) as OrderItem[];
 }
+
+export type NewOrderItem = Omit<OrderItem, "id">;
 
 export async function fetchOrderHistory(orderId: string): Promise<HistoryRow[]> {
   const { data, error } = await supabase

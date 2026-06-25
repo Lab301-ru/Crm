@@ -22,13 +22,15 @@ export function PrintDocumentPage() {
   const printed = useRef(false);
 
   const valid = (Object.keys(DOC_LABELS) as DocType[]).includes(docType as DocType);
+  const deviceParam = params.get("device") ?? undefined;
   const doc = useQuery({
-    queryKey: ["print-document", id, docType, params.get("doc"), params.get("refresh")],
+    queryKey: ["print-document", id, docType, params.get("doc"), params.get("refresh"), deviceParam],
     queryFn: () =>
       getPrintDocument(id, docType as DocType, {
         docId: params.get("doc") ?? undefined,
         refresh: params.get("refresh") === "1",
         createdBy: profile!.id,
+        orderDeviceId: deviceParam,
       }),
     enabled: valid && !!profile,
     staleTime: Infinity,
