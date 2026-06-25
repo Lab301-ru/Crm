@@ -101,7 +101,14 @@ export function OrderPage() {
       {/* Шапка */}
       <div className="flex flex-wrap items-center gap-3">
         <h1 className="text-lg font-bold">{o.display_number}</h1>
-        {current && <StatusBadge label={current.label} color={current.color} />}
+        {current && (
+          <div>
+            <StatusBadge label={current.label} color={current.color} />
+            {o.status_since && (
+              <p className="mt-1 text-xs text-muted">с {formatDateTime(o.status_since)}</p>
+            )}
+          </div>
+        )}
         {o.is_overdue && <OverdueBadge />}
         <span className="ml-auto text-sm text-muted">принят {formatDateTime(o.accepted_at)}</span>
       </div>

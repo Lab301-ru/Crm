@@ -16,8 +16,8 @@ insert into public.statuses (code, label, color, sort, is_terminal) values
   ('in_repair',         'В ремонте',               '#06B6D4', 60,  false),
   ('outsource',         'Аутсорс',                 '#D946EF', 65,  false),
   ('ready',             'Готов',                   '#22C55E', 70,  false),
-  ('issued',            'Выдан',                   '#14B8A6', 80,  true),
-  ('declined',          'Отказ',                   '#EF4444', 90,  false),
+  ('issued',            'Выдан с ремонтом',        '#14B8A6', 80,  true),
+  ('declined',          'Выдан без ремонта',       '#EF4444', 90,  false),
   ('scrapped',          'Утиль',                   '#6B7280', 100, true)
 on conflict (code) do nothing;
 

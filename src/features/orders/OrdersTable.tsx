@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import type { OrderListRow } from "@/shared/api/types";
-import { formatDate, formatMoney, formatPhone } from "@/shared/lib/format";
+import { formatDate, formatDateTime, formatMoney, formatPhone } from "@/shared/lib/format";
 import { OverdueBadge, StatusBadge } from "@/shared/ui";
 
 /** Таблица на ПК, карточки на телефоне — один компонент. */
@@ -34,6 +34,9 @@ export function OrdersTable({ rows }: { rows: OrderListRow[] }) {
               <td className="max-w-56 truncate py-2.5 pr-3">{row.device_label}</td>
               <td className="py-2.5 pr-3">
                 <StatusBadge label={row.status_label} color={row.status_color} />
+                {row.status_since && (
+                  <p className="mt-1 text-xs text-muted whitespace-nowrap">{formatDateTime(row.status_since)}</p>
+                )}
               </td>
               <td className="py-2.5 pr-3 whitespace-nowrap">
                 {formatDate(row.due_date)} {row.is_overdue && <OverdueBadge />}
@@ -54,7 +57,12 @@ export function OrdersTable({ rows }: { rows: OrderListRow[] }) {
             >
               <div className="flex items-center justify-between gap-2">
                 <span className="font-semibold">{row.display_number}</span>
-                <StatusBadge label={row.status_label} color={row.status_color} />
+                <div className="text-right">
+                  <StatusBadge label={row.status_label} color={row.status_color} />
+                  {row.status_since && (
+                    <p className="mt-0.5 text-[11px] text-muted whitespace-nowrap">{formatDateTime(row.status_since)}</p>
+                  )}
+                </div>
               </div>
               <p className="mt-1 truncate text-sm">{row.device_label}</p>
               <div className="mt-1 flex items-center justify-between text-xs text-muted">

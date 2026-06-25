@@ -88,6 +88,7 @@ export interface OrderListRow {
   status_label: string;
   status_color: string;
   accepted_at: string | null;
+  status_since: string | null;
   due_date: string | null;
   is_overdue: boolean;
   grand_total: number;
@@ -137,6 +138,7 @@ export interface Order {
   grand_total: number;
   due_amount: number;
   is_overdue: boolean;
+  status_since: string | null;
 }
 
 export interface OrderItem {
