@@ -8,7 +8,7 @@ import {
 import { addOrderDevice, fetchOrderDevices, issueOrderDevice, updateOrderDevice, type DevicePayload } from "@/shared/api/orderDevices";
 import { fetchClient, updateClient } from "@/shared/api/clients";
 import {
-  fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
+  addCategory, fetchCategories, fetchDevice, fetchFieldTemplates, quickAddModel, searchBrands, searchModels, updateDevice,
 } from "@/shared/api/catalog";
 import { fetchProfiles } from "@/shared/api/settings";
 import type { Client, Device, Order, OrderDeviceTotals, OrderItem, PaymentMethod, PaymentStatus, Status } from "@/shared/api/types";
@@ -901,6 +901,7 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
   device: Device; orderDevice?: OrderDeviceTotals; onClose: () => void; onSaved: () => void;
 }) {
   const [categoryId, setCategoryId] = useState(device.category_id);
+  const [categoryName, setCategoryName] = useState("");
   const [brandId, setBrandId] = useState(device.brand_id);
   const [modelId, setModelId] = useState<string | null>(device.model_id);
   const [brandName, setBrandName] = useState("");
@@ -924,7 +925,11 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
     enabled: !!categoryId,
   });
 
-  // Загрузить текущий бренд/модель в поля поиска при открытии — чтобы было видно, что выбрано
+  // Подставить текущие имена в поля ввода при открытии — чтобы было видно, что выбрано
+  useEffect(() => {
+    const cur = (categories.data ?? []).find((c) => c.id === device.category_id);
+    if (cur) setCategoryName(cur.name);
+  }, [categories.data, device.category_id]);
   useEffect(() => {
     void (async () => {
       const b = await searchBrands("");
@@ -935,6 +940,14 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
 
   const save = useMutation({
     mutationFn: async () => {
+      // Категория введена вручную — либо подбираем существующую, либо создаём.
+      let finalCategoryId = categoryId;
+      const typedCat = categoryName.trim();
+      if (!finalCategoryId && typedCat) {
+        const exact = (categories.data ?? []).find((c) => c.name.trim().toLowerCase() === typedCat.toLowerCase());
+        finalCategoryId = exact ? exact.id : (await addCategory(typedCat)).id;
+      }
+
       let finalBrandId = brandId;
       let finalModelId = modelId;
       const typedBrand = brandName.trim();
@@ -944,18 +957,18 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
       if (typedBrand && !finalBrandId) {
         // Бренд введён вручную и не выбран из списка — создаём бренд (и модель, если введена).
         // Без этого при пустой модели в brand_id уходила пустая строка → ошибка uuid.
-        const added = await quickAddModel(categoryId, typedBrand, typedModel || typedBrand);
+        const added = await quickAddModel(finalCategoryId, typedBrand, typedModel || typedBrand);
         finalBrandId = added.brand_id;
         finalModelId = typedModel ? added.model_id : null;
       } else if (finalBrandId && typedModel && !modelMatch) {
         // Бренд известен, модель введена вручную и её нет в справочнике — создаём модель.
-        const added = await quickAddModel(categoryId, typedBrand || brandName, typedModel);
+        const added = await quickAddModel(finalCategoryId, typedBrand || brandName, typedModel);
         finalBrandId = added.brand_id;
         finalModelId = added.model_id;
       }
 
       await updateDevice(device.id, {
-        category_id: categoryId,
+        category_id: finalCategoryId || device.category_id,
         brand_id: finalBrandId || device.brand_id,
         model_id: finalModelId || null,
         serial_number: serial.trim() || null,
@@ -978,18 +991,32 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
     <Modal open onClose={onClose} title="Изменить устройство">
       <div className="space-y-3">
         <Field label="Категория" required>
-          <Select
-            value={categoryId}
+          <Input
+            placeholder="Начните вводить…"
+            value={categoryName}
             onChange={(e) => {
-              setCategoryId(e.target.value);
+              setCategoryName(e.target.value);
+              setCategoryId("");
               setModelId(null);
               setModelName("");
             }}
-          >
-            {(categories.data ?? []).map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </Select>
+          />
+          {(() => {
+            const q = categoryName.trim().toLowerCase();
+            if (!q || categoryId) return null;
+            const matches = (categories.data ?? []).filter((c) => c.name.toLowerCase().includes(q)).slice(0, 6);
+            if (matches.length === 0) return (
+              <p className="mt-1 text-xs text-muted">Категория «{categoryName.trim()}» добавится в справочник при сохранении.</p>
+            );
+            return (
+              <div className="mt-1 flex flex-wrap gap-1">
+                {matches.map((c) => (
+                  <button type="button" key={c.id} onClick={() => { setCategoryId(c.id); setCategoryName(c.name); }}
+                    className="rounded border border-border px-2 py-0.5 text-xs hover:bg-surface-2">{c.name}</button>
+                ))}
+              </div>
+            );
+          })()}
         </Field>
 
         <Field label="Бренд" required>
@@ -1042,7 +1069,7 @@ function EditDeviceModal({ device, orderDevice, onClose, onSaved }: {
         )}
         <ErrorText error={save.error} />
         <div className="flex gap-2">
-          <Button className="flex-1" disabled={save.isPending || !categoryId || !brandName.trim()} onClick={() => save.mutate()}>
+          <Button className="flex-1" disabled={save.isPending || !(categoryId || categoryName.trim()) || !brandName.trim()} onClick={() => save.mutate()}>
             {save.isPending ? "Сохранение…" : "Сохранить"}
           </Button>
           <Button variant="secondary" onClick={onClose}>Отмена</Button>
