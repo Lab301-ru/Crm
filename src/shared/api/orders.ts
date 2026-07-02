@@ -1,6 +1,6 @@
 import { supabase, throwIfError } from "./supabase";
 import type {
-  HistoryRow, Order, OrderItem, OrderListRow, SearchResult, Status, Transition,
+  HistoryRow, Order, OrderItem, OrderListRow, PaymentMethod, SearchResult, Status, Transition,
 } from "./types";
 
 export interface OrderFilters {
@@ -122,6 +122,16 @@ export async function createOrder(input: CreateOrderInput): Promise<{ id: string
 
 export async function updateOrder(id: string, patch: Partial<Order>): Promise<void> {
   const { error } = await supabase.from("orders").update(patch).eq("id", id);
+  throwIfError(error);
+}
+
+/** Идемпотентно устанавливает сумму предоплаты по заказу.
+ *  Событие регистрируется в журнале платежей текущим временем — благодаря
+ *  этому предоплата, принятая сегодня, попадает в сегодняшнюю выручку. */
+export async function setOrderPrepayment(orderId: string, amount: number, method?: PaymentMethod | null): Promise<void> {
+  const { error } = await supabase.rpc("set_order_prepayment", {
+    p_order_id: orderId, p_amount: amount, p_method: method ?? null,
+  });
   throwIfError(error);
 }
 
