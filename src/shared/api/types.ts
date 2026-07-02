@@ -112,6 +112,18 @@ export interface OrderListRow {
   brand_id: string;
 }
 
+export interface PaymentListRow {
+  id: string;
+  order_id: string;
+  amount: number;
+  kind: "prepayment" | "final";
+  method: PaymentMethod | null;
+  paid_at: string;
+  display_number: string;
+  order_status: string;
+  client_name: string;
+}
+
 export interface Order {
   id: string;
   number: number;

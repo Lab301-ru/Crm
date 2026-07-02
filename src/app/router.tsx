@@ -16,6 +16,7 @@ import { StockPage } from "@/features/stock/StockPage";
 import { SettingsPage } from "@/features/settings/SettingsPage";
 import { CctvPage, InvoicesPage, MapsPage, MessengersPage, TelephonyPage, WebsiteAdminPage } from "@/features/external/ExternalLinkPage";
 import { PaymentPage } from "@/features/payment/PaymentPage";
+import { PaymentsPage } from "@/features/payments/PaymentsPage";
 import { PrintDocumentPage } from "@/features/orders/PrintDocumentPage";
 import { PublicStatusPage } from "@/features/public/PublicStatusPage";
 import { ErrorBoundary } from "./ErrorBoundary";
@@ -76,6 +77,7 @@ export const router = createBrowserRouter([
           { path: "/messengers", element: <MessengersPage /> },
           { path: "/invoices", element: <InvoicesPage /> },
           { path: "/payment", element: <PaymentPage /> },
+          { path: "/payments", element: <PaymentsPage /> },
           { path: "/settings", element: <SettingsPage /> },
         ],
       },

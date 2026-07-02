@@ -1,6 +1,7 @@
 import { supabase, throwIfError } from "./supabase";
 import type {
-  HistoryRow, Order, OrderItem, OrderListRow, PaymentMethod, PaymentStatus, SearchResult, Status, Transition,
+  HistoryRow, Order, OrderItem, OrderListRow, PaymentListRow, PaymentMethod, PaymentStatus,
+  SearchResult, Status, Transition,
 } from "./types";
 
 export interface OrderFilters {
@@ -133,6 +134,16 @@ export async function setOrderPrepayment(orderId: string, amount: number, method
     p_order_id: orderId, p_amount: amount, p_method: method ?? null,
   });
   throwIfError(error);
+}
+
+/** Журнал платежей за период (обе даты включительно, локальные YYYY-MM-DD). */
+export async function fetchPayments(from?: string, to?: string): Promise<PaymentListRow[]> {
+  let q = supabase.from("payment_list").select("*").order("paid_at", { ascending: false }).limit(500);
+  if (from) q = q.gte("paid_at", from);
+  if (to) q = q.lte("paid_at", `${to}T23:59:59`);
+  const { data, error } = await q;
+  throwIfError(error);
+  return (data ?? []) as PaymentListRow[];
 }
 
 export interface SavePaymentInput {

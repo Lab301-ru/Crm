@@ -25,6 +25,12 @@ function issuedLinks() {
     year: `/orders?issued_from=${year}&issued_to=${today}`,
     all: "/orders?status=issued",
     acceptedToday: `/orders?from=${today}&to=${today}`,
+    // Выручка считается кассовым методом — детализация в журнале платежей,
+    // где видно и предоплаты, и оплаты при выдаче (по номерам заказов).
+    paymentsToday: `/payments?from=${today}&to=${today}`,
+    paymentsMonth: `/payments?from=${month}&to=${today}`,
+    paymentsYear: `/payments?from=${year}&to=${today}`,
+    paymentsAll: "/payments",
   };
 }
 
@@ -82,7 +88,7 @@ export function DashboardPage() {
 
   const s = stats.data;
   const links = issuedLinks();
-  const financeLinks = [links.today, links.month, links.year, links.all];
+  const financeLinks = [links.paymentsToday, links.paymentsMonth, links.paymentsYear, links.paymentsAll];
 
   return (
     <div className="space-y-4 p-4">
