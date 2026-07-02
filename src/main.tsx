@@ -6,7 +6,7 @@ import { PersistQueryClientProvider } from "@tanstack/react-query-persist-client
 import { createSyncStoragePersister } from "@tanstack/query-sync-storage-persister";
 import { AuthProvider } from "./app/AuthProvider";
 import { router } from "./app/router";
-import { changeStatus, updateOrder } from "./shared/api/orders";
+import { changeStatus, saveOrderPayment, updateOrder, type SavePaymentInput } from "./shared/api/orders";
 import type { Order } from "./shared/api/types";
 import "./index.css";
 import "./theme-light.css";
@@ -34,6 +34,9 @@ queryClient.setMutationDefaults(["change-status"], {
 });
 queryClient.setMutationDefaults(["update-order"], {
   mutationFn: (v: { orderId: string; patch: Partial<Order> }) => updateOrder(v.orderId, v.patch),
+});
+queryClient.setMutationDefaults(["update-payment"], {
+  mutationFn: (v: SavePaymentInput) => saveOrderPayment(v),
 });
 
 export const queryPersister = createSyncStoragePersister({

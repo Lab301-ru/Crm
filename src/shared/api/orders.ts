@@ -1,6 +1,6 @@
 import { supabase, throwIfError } from "./supabase";
 import type {
-  HistoryRow, Order, OrderItem, OrderListRow, PaymentMethod, SearchResult, Status, Transition,
+  HistoryRow, Order, OrderItem, OrderListRow, PaymentMethod, PaymentStatus, SearchResult, Status, Transition,
 } from "./types";
 
 export interface OrderFilters {
@@ -133,6 +133,19 @@ export async function setOrderPrepayment(orderId: string, amount: number, method
     p_order_id: orderId, p_amount: amount, p_method: method ?? null,
   });
   throwIfError(error);
+}
+
+export interface SavePaymentInput {
+  orderId: string;
+  prepayment: number;
+  method: PaymentMethod | null;
+  paymentStatus: PaymentStatus;
+}
+
+/** Сохранение карточки «Оплата»: предоплата через журнал платежей + статус/способ. */
+export async function saveOrderPayment(v: SavePaymentInput): Promise<void> {
+  await setOrderPrepayment(v.orderId, v.prepayment, v.method);
+  await updateOrder(v.orderId, { payment_status: v.paymentStatus, payment_method: v.method });
 }
 
 export async function addOrderItem(item: Omit<OrderItem, "id">): Promise<void> {
