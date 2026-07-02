@@ -3,7 +3,8 @@ import { Link, useParams } from "react-router-dom";
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import {
   addOrderItem, changeStatus, deleteOrderItem, fetchOrder, fetchOrderHistory,
-  fetchOrderItems, fetchStatuses, fetchTransitions, setOrderPrepayment, updateOrder,
+  fetchOrderItems, fetchStatuses, fetchTransitions, saveOrderPayment, updateOrder,
+  type SavePaymentInput,
 } from "@/shared/api/orders";
 import { addOrderDevice, fetchOrderDevices, issueOrderDevice, updateOrderDevice, type DevicePayload } from "@/shared/api/orderDevices";
 import { fetchClient, updateClient } from "@/shared/api/clients";
@@ -589,19 +590,18 @@ function PaymentCard({ order, onSaved }: { order: Order; onSaved: () => void }) 
   const [prepayment, setPrepayment] = useState(String(order.prepayment));
 
   const save = useMutation({
-    mutationKey: ["update-order"],
-    mutationFn: async () => {
-      // Предоплата пишется через RPC — событие фиксируется в журнале
-      // платежей текущим временем, и попадает в сегодняшнюю выручку.
-      await setOrderPrepayment(order.id, Number(prepayment) || 0, method || null);
-      await updateOrder(order.id, {
-        payment_status: paymentStatus,
-        payment_method: method || null,
-      });
-    },
+    // ключ + переменные (не замыкание): мутация попадает в офлайн-очередь
+    // и доотправляется после перезагрузки (defaults в main.tsx)
+    mutationKey: ["update-payment"],
+    mutationFn: (v: SavePaymentInput) => saveOrderPayment(v),
     onSuccess: onSaved,
   });
-  const submitPayment = () => save.mutate();
+  const submitPayment = () => save.mutate({
+    orderId: order.id,
+    prepayment: Number(prepayment) || 0,
+    method: method || null,
+    paymentStatus,
+  });
 
   return (
     <Card
